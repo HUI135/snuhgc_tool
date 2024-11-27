@@ -14,5 +14,4 @@ xlrd
 boto3
 pgmpy==0.1.18
 networks
-torch==1.13.1
 causal-learn
