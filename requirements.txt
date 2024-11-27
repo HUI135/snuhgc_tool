@@ -13,4 +13,5 @@ xlrd
 boto3
 pgmpy==0.1.18
 networks
+openpyxl
 # causal-learn
