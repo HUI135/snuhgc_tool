@@ -3246,61 +3246,61 @@ if login():  # If logged in, show the rest of the app
             except OSError as e:  # 파일 암호화 또는 해독 문제 처리
                 st.error("파일이 암호화된 것 같습니다. 파일의 암호를 푼 후 다시 시도해주세요.")
 
-    elif page == "⛔ 오류가 발생했어요":
-        # Mailgun API Information
-        API_KEY = '5b177fd33abf249de3f999a97688833a-5dcb5e36-e3549260'
-        DOMAIN_NAME = 'sandbox9b0aa132fcdb42e2a35c0642808b1f8d.mailgun.org'
+    # elif page == "⛔ 오류가 발생했어요":
+    #     # Mailgun API Information
+    #     API_KEY = '5b177fd33abf249de3f999a97688833a-5dcb5e36-e3549260'
+    #     DOMAIN_NAME = 'sandbox9b0aa132fcdb42e2a35c0642808b1f8d.mailgun.org'
 
-        # Email sending function via Mailgun
-        def send_email_via_mailgun(subject, message):
-            try:
-                response = requests.post(
-                    f"https://api.mailgun.net/v3/{DOMAIN_NAME}/messages",
-                    auth=("api", API_KEY),
-                    data={
-                        "from": f"Excited User <mailgun@{DOMAIN_NAME}>",  # Sender address
-                        "to": ["hui135@snu.ac.kr"],  # Recipient address
-                        "subject": subject,  # Email subject
-                        "text": message  # Email body
-                    }
-                )
-                return response
-            except Exception as e:
-                st.error(f"An error occurred: {e}")
-                return None
+    #     # Email sending function via Mailgun
+    #     def send_email_via_mailgun(subject, message):
+    #         try:
+    #             response = requests.post(
+    #                 f"https://api.mailgun.net/v3/{DOMAIN_NAME}/messages",
+    #                 auth=("api", API_KEY),
+    #                 data={
+    #                     "from": f"Excited User <mailgun@{DOMAIN_NAME}>",  # Sender address
+    #                     "to": ["hui135@snu.ac.kr"],  # Recipient address
+    #                     "subject": subject,  # Email subject
+    #                     "text": message  # Email body
+    #                 }
+    #             )
+    #             return response
+    #         except Exception as e:
+    #             st.error(f"An error occurred: {e}")
+    #             return None
 
-        st.markdown(
-        """
-        <div style="background-color: #e9f5ff; padding: 10px; border-radius: 10px;">
-            <h2 style="color: #000000;">⛔ 오류가 발생했어요</h2>
-        </div>
-        """,
-        unsafe_allow_html=True
-        )
-        st.divider()
-        st.write(" ")
+    #     st.markdown(
+    #     """
+    #     <div style="background-color: #e9f5ff; padding: 10px; border-radius: 10px;">
+    #         <h2 style="color: #000000;">⛔ 오류가 발생했어요</h2>
+    #     </div>
+    #     """,
+    #     unsafe_allow_html=True
+    #     )
+    #     st.divider()
+    #     st.write(" ")
 
-        # Get user input
-        st.markdown("<h4 style='color:grey;'>어떤 어려움이 있으셨나요?</h4>", unsafe_allow_html=True)
-        user_input = st.text_area("여기에 겪고계신 어려움을 작성해주세요. 입력하신 메세지는 김희연 연구원에게 전달됩니다.", key="user_input")
+    #     # Get user input
+    #     st.markdown("<h4 style='color:grey;'>어떤 어려움이 있으셨나요?</h4>", unsafe_allow_html=True)
+    #     user_input = st.text_area("여기에 겪고계신 어려움을 작성해주세요. 입력하신 메세지는 김희연 연구원에게 전달됩니다.", key="user_input")
 
-        # Send an email when the submit button is clicked
-        if st.button("제출", key="submit_button_1"):
-            if user_input.strip() == "":  # Check if the input is empty
-                st.warning("제출 전 내용을 작성해주세요.")
-            else:
-                response = send_email_via_mailgun("User Feedback", user_input)
+    #     # Send an email when the submit button is clicked
+    #     if st.button("제출", key="submit_button_1"):
+    #         if user_input.strip() == "":  # Check if the input is empty
+    #             st.warning("제출 전 내용을 작성해주세요.")
+    #         else:
+    #             response = send_email_via_mailgun("User Feedback", user_input)
 
-                # If response is None, an error occurred during the request
-                if response is None:
-                    st.error("전송에 실패하였습니다.")
-                else:
-                    # Check response status code
-                    if response.status_code == 200:
-                        st.success("성공적으로 전송되었습니다.")
-                    else:
-                        st.error(f"Send failed: {response.text}")
-                        st.write(f"Status code: {response.status_code}")
+    #             # If response is None, an error occurred during the request
+    #             if response is None:
+    #                 st.error("전송에 실패하였습니다.")
+    #             else:
+    #                 # Check response status code
+    #                 if response.status_code == 200:
+    #                     st.success("성공적으로 전송되었습니다.")
+    #                 else:
+    #                     st.error(f"Send failed: {response.text}")
+    #                     st.write(f"Status code: {response.status_code}")
 
 else:
     # st.markdown("<h4 style='color:grey;'>시스템 접근을 위해 로그인이 필요합니다.</h4>", unsafe_allow_html=True)
