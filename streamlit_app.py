@@ -29,8 +29,8 @@ import boto3
 from botocore.client import Config
 # from pgmpy.estimators import HillClimbSearch, BicScore
 # import networkx as nx
-from causallearn.search.ConstraintBased.PC import pc
-from causallearn.utils.GraphUtils import GraphUtils
+# from causallearn.search.ConstraintBased.PC import pc
+# from causallearn.utils.GraphUtils import GraphUtils
 import matplotlib.pyplot as plt
 import networkx as nx
 # from causallearn.utils.GraphUtils import graph_to_adjacency_matrix
