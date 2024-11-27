@@ -33,7 +33,7 @@ from botocore.client import Config
 # from causallearn.utils.GraphUtils import GraphUtils
 import matplotlib.pyplot as plt
 import networkx as nx
-import pyxl
+import openpyxl
 # from causallearn.utils.GraphUtils import graph_to_adjacency_matrix
 
 # wide format
