@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 from io import BytesIO
 import plotly.express as px
-from st_flexible_callout_elements import flexible_callout
 import smtplib
 from email.mime.text import MIMEText
 import scipy
