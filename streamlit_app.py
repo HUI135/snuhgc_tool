@@ -29,8 +29,8 @@ import boto3
 from botocore.client import Config
 # from pgmpy.estimators import HillClimbSearch, BicScore
 # import networkx as nx
-# from causallearn.search.ConstraintBased.PC import pc
-# from causallearn.utils.GraphUtils import GraphUtils
+from causallearn.search.ConstraintBased.PC import pc
+from causallearn.utils.GraphUtils import GraphUtils
 import matplotlib.pyplot as plt
 import networkx as nx
 import openpyxl
@@ -437,7 +437,7 @@ if login():  # If logged in, show the rest of the app
                     if uploaded_file.name.endswith(".csv"):
                         df = pd.read_csv(uploaded_file)
                     elif uploaded_file.name.endswith(".xlsx"):
-                        xls = pd.ExcelFile(uploaded_file)
+                        xls = pd.ExcelFile(uploaded_file, engine='openpyxl')
                         sheet_names = xls.sheet_names
 
                         # 시트 선택 옵션에 "-- 선택 --" 추가
