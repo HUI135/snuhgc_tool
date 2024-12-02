@@ -1940,7 +1940,7 @@ if login():  # If logged in, show the rest of the app
         <div style="background-color: #e9f5ff; padding: 10px; border-radius: 10px;">
             <h2 style="color: #000000;">🔃 인과관계 추론</h2>
             <p style="font-size:18px; color: #000000;">
-            &nbsp;&nbsp;&nbsp;&nbsp;판독문 텍스트 데이터를 업로드하신 후 원하시는 코딩을 수행하세요.
+            &nbsp;&nbsp;&nbsp;&nbsp;분석 전 데이터 인과관계를 파악해보세요.
             </p>
         </div>
         """,
@@ -1955,7 +1955,7 @@ if login():  # If logged in, show the rest of the app
 
         # 1. 파일 업로드
         st.markdown("<h4 style='color:grey;'>데이터 업로드</h4>", unsafe_allow_html=True)
-        uploaded_file = st.file_uploader("판독문 텍스트 열을 포함한 파일을 업로드하세요.", type=["csv", "xlsx"])
+        uploaded_file = st.file_uploader("인과관계를 볼 데이터 파일을 업로드하세요.", type=["csv", "xlsx"])
 
         if uploaded_file is not None:
             # 파일이 새로 업로드되었을 때 세션 상태 초기화
@@ -2037,8 +2037,8 @@ if login():  # If logged in, show the rest of the app
 
                     # 판독문 열 선택창
                     st.divider()
-                    st.markdown("<h4 style='color:grey;'>관계를 볼 변수 선택</h4>", unsafe_allow_html=True)
-                    column_selected = st.selectbox("인과관계를 볼 변수 열을 선택하세요.", options=df.columns)
+                    st.markdown("<h4 style='color:grey;'>변수 선택</h4>", unsafe_allow_html=True)
+                    st.write("인과관계를 볼 변수 열을 선택하세요.")
 
                     # 선택된 열을 기반으로 작업
                     st.session_state.df = df  # Ensure df is stored initially
@@ -2050,36 +2050,36 @@ if login():  # If logged in, show the rest of the app
 
                     # Separate selections for continuous and categorical variables
                     continuous_columns = st.multiselect(
-                        "- 연속형 설명변수(X)를 선택해주세요.",
+                        "- 연속형 변수를 선택해주세요.",
                         df.select_dtypes(include=['float64', 'int64']).columns,
                         key="continuous_columns_selection"
                     )
 
+                    # 범주형 변수 선택
                     categorical_columns = st.multiselect(
-                        "- 범주형 설명변수(X)를 선택해주세요.",
+                        "- 범주형 변수를 선택해주세요.",
                         get_categorical_columns(df),
                         key="categorical_columns_selection"
                     )
 
                     st.session_state.X_columns = continuous_columns + categorical_columns
-                    if 'proceed_to_preprocessing' not in st.session_state:
-                        st.session_state.proceed_to_preprocessing = False
 
-                    # Add a button to confirm the selections
+                    # 선택 완료 버튼
                     if st.button('선택 완료', key='complete_button'):
-                        if (continuous_columns or categorical_columns):  # Ensure that y and at least one X is selected
+                        if len(continuous_columns) + len(categorical_columns) > 1:
                             st.session_state.continuous_columns = continuous_columns
                             st.session_state.categorical_columns = categorical_columns
                             st.session_state.proceed_to_preprocessing = True
+                            st.success("변수 선택이 완료되었습니다. 다음 단계로 진행하세요.")
                         else:
-                            st.warning("변수를 한 개 이상 선택해주세요.", icon="⚠️")
+                            st.warning("변수를 두 개 이상 선택해주세요.", icon="⚠️")
 
-                    # Check if preprocessing should proceed
-                    if st.session_state.proceed_to_preprocessing:
+                    # 2. 전처리 단계
+                    if st.session_state.get("proceed_to_preprocessing", False):
                         st.divider()
                         st.markdown("<h4 style='color:grey;'>결측 파악</h4>", unsafe_allow_html=True)
 
-                        # Check missing values for continuous and categorical variables separately
+                        # 연속형 변수 결측값 파악
                         for X_column in st.session_state.continuous_columns:
                             X_missing_count = df[X_column].isna().sum()
                             st.markdown(
@@ -2087,6 +2087,7 @@ if login():  # If logged in, show the rest of the app
                                 unsafe_allow_html=True
                             )
 
+                        # 범주형 변수 결측값 파악
                         for X_column in st.session_state.categorical_columns:
                             X_missing_count = df[X_column].isna().sum()
                             st.markdown(
@@ -2094,254 +2095,209 @@ if login():  # If logged in, show the rest of the app
                                 unsafe_allow_html=True
                             )
 
-                        # Function to handle missing values
-                        def handle_missing_values(df, columns, strategies):
-                            for column, strategy in strategies.items():
-                                if strategy == '결측이 존재하는 행을 제거':
-                                    df = df.dropna(subset=[column])
-                                elif strategy in ['해당 열의 평균값으로 대체', '해당 열의 중앙값으로 대체', '해당 열의 최빈값으로 대체']:
-                                    impute_strategy = {
-                                        '해당 열의 평균값으로 대체': 'mean',
-                                        '해당 열의 중앙값으로 대체': 'median',
-                                        '해당 열의 최빈값으로 대체': 'most_frequent'
-                                    }[strategy]
-                                    imputer = SimpleImputer(strategy=impute_strategy)
-                                    df[[column]] = imputer.fit_transform(df[[column]])
-                            return df
-
-                        # Synchronize indexes between continuous and categorical data
-                        def synchronize_indexes(X_continuous, X_categorical):
-                            shared_indexes = X_continuous.index.intersection(X_categorical.index)
-                            return X_continuous.loc[shared_indexes], X_categorical.loc[shared_indexes]
-
-                        # Separate continuous and categorical columns
+                        # 데이터 분리
                         X_continuous = df[st.session_state.continuous_columns]
                         X_categorical = df[st.session_state.categorical_columns]
 
-                        # Check for missing values
+                        # 결측값 유무 확인
                         continuous_missing = X_continuous.isnull().any().any()
                         categorical_missing = X_categorical.isnull().any().any()
 
+                        # Initialize session states
+                        if "causal_inference_ready" not in st.session_state:
+                            st.session_state.causal_inference_ready = False  # 관계 추론 준비 상태
+                        if "causal_inference_triggered" not in st.session_state:
+                            st.session_state.causal_inference_triggered = False  # 관계 추론 수행 상태
+                        if "random_seed" not in st.session_state:
+                            st.session_state.random_seed = 111  # 기본 시드 값
+
+                        # Check if missing values need to be handled
                         if not continuous_missing and not categorical_missing:
-                            st.markdown(
-                                f"<p style='font-size:16px;'><strong>결측 처리 작업 없이 분석이 가능합니다.</strong></p>",
-                                unsafe_allow_html=True
-                            )
-
+                            st.success("결측 처리 작업 없이 분석이 가능합니다.")  # No missing values detected
+                            st.session_state.causal_inference_ready = True  # 바로 관계 추론 가능
                         else:
+                            st.warning("결측값 처리가 필요합니다.")  # Missing values detected
+                            st.markdown("<h4 style='color:grey;'>결측 처리</h4>", unsafe_allow_html=True)
+
+                            # 결측값 처리 전략 선택 (생략 - 이미 처리된 코드로 가정)
+
+                        # Perform causal inference button
+                        if st.session_state.causal_inference_ready and not st.session_state.causal_inference_triggered:
+                            if st.button("관계 추론", key="causal_inference_button"):
+                                st.session_state.causal_inference_triggered = True  # 관계 추론 수행 상태로 변경
+                                st.divider()
+                                st.header("🔃 인과관계 추론", divider="rainbow")
+
+                        # If causal inference has been triggered, perform graph visualization
+                        if st.session_state.causal_inference_triggered:
                             st.divider()
-                            st.markdown("<h4 style='color:grey;'>변수 전처리</h4>", unsafe_allow_html=True)
+                            st.header("🔃 인과관계 추론", divider="rainbow")
 
-                            # Missing value strategies for continuous columns
-                            continuous_missing_value_strategies = {}
-                            for column in st.session_state.continuous_columns:
-                                if df[column].isnull().any():
-                                    n = df[column].isna().sum()
-                                    strategy = st.selectbox(
-                                        f"- ⚠️ 선택하신 연속형 설명변수 '{column}'에 {n}개의 결측이 있습니다. 처리 방법을 선택하세요:",
-                                        ['-- 선택 --', '결측이 존재하는 행을 제거', '해당 열의 평균값으로 대체', '해당 열의 중앙값으로 대체', '해당 열의 최빈값으로 대체'],
-                                        key=f"{column}_strategy"
+                            # 데이터 결합
+                            if not X_continuous.empty or not X_categorical.empty:
+                                X = pd.concat([X_continuous, X_categorical], axis=1)
+
+                            # 데이터 전처리
+                            preprocessor = ColumnTransformer(
+                                transformers=[
+                                    ('num', StandardScaler(), list(X_continuous.columns)),  # 연속형 변수 표준화
+                                    ('cat', OneHotEncoder(drop='first'), list(X_categorical.columns))  # 범주형 변수 원-핫 인코딩
+                                ]
+                            )
+                            X_transformed = preprocessor.fit_transform(X)
+
+                            # PC 알고리즘 실행
+                            cg = pc(X_transformed, alpha=0.05)
+
+                            # 방향성 있는 인과관계만 추출
+                            def extract_directed_edges(causal_graph, column_names):
+                                edges = []
+                                for i in range(len(causal_graph)):
+                                    for j in range(len(causal_graph)):
+                                        if causal_graph[i, j] == 1 and causal_graph[j, i] != 1:  # Only i → j
+                                            edges.append((column_names[i], column_names[j]))
+                                        elif causal_graph[i, j] == -1 and causal_graph[j, i] != -1:  # Only j → i
+                                            edges.append((column_names[j], column_names[i]))
+                                return edges
+
+                            column_names = X.columns
+                            edges = extract_directed_edges(cg.G.graph, column_names)
+
+                            # Create the causal graph
+                            causal_graph = nx.DiGraph()
+                            causal_graph.add_edges_from(edges)
+
+                            # 그래프 시각화
+                            def visualize_graph(graph, seed=None, padding_ratio=0.1, node_separation=1.5):
+                                pos = nx.spring_layout(graph, seed=seed, k=node_separation, iterations=100)
+
+                                edge_x = []
+                                edge_y = []
+                                annotations = []
+
+                                for edge in graph.edges():
+                                    x0, y0 = pos[edge[0]]
+                                    x1, y1 = pos[edge[1]]
+                                    dx, dy = x1 - x0, y1 - y0
+                                    dist = (dx**2 + dy**2)**0.5
+
+                                    # 패딩 적용
+                                    x0_padded = x0 + dx * padding_ratio / dist
+                                    y0_padded = y0 + dy * padding_ratio / dist
+                                    x1_padded = x1 - dx * padding_ratio / dist
+                                    y1_padded = y1 - dy * padding_ratio / dist
+
+                                    edge_x.extend([x0_padded, x1_padded, None])
+                                    edge_y.extend([y0_padded, y1_padded, None])
+
+                                    annotations.append(
+                                        dict(
+                                            ax=x0_padded, ay=y0_padded,
+                                            x=x1_padded, y=y1_padded,
+                                            xref="x", yref="y",
+                                            axref="x", ayref="y",
+                                            showarrow=True,
+                                            arrowhead=3,
+                                            arrowsize=1.5,
+                                            arrowwidth=1.5,
+                                            arrowcolor="gray"
+                                        )
                                     )
-                                    if strategy != '-- 선택 --':
-                                        continuous_missing_value_strategies[column] = strategy
 
-                            # Missing value strategies for categorical columns
-                            categorical_missing_value_strategies = {}
-                            for column in st.session_state.categorical_columns:
-                                if df[column].isnull().any():
-                                    n = df[column].isna().sum()
-                                    strategy = st.selectbox(
-                                        f"- ⚠️ 선택하신 범주형 설명변수 '{column}'에 {n}개의 결측이 있습니다. 처리 방법을 선택하세요:",
-                                        ['-- 선택 --', '결측이 존재하는 행을 제거', '해당 열의 최빈값으로 대체'],
-                                        key=f"{column}_strategy"
-                                    )
-                                    if strategy != '-- 선택 --':
-                                        categorical_missing_value_strategies[column] = strategy
+                                node_x = []
+                                node_y = []
+                                node_text = []
+                                for node in graph.nodes():
+                                    x, y = pos[node]
+                                    node_x.append(x)
+                                    node_y.append(y)
+                                    node_text.append(node)
 
-                            # Apply missing value strategies
-                            if continuous_missing_value_strategies:
-                                X_continuous = handle_missing_values(X_continuous, st.session_state.continuous_columns, continuous_missing_value_strategies)
-
-                            if categorical_missing_value_strategies:
-                                X_categorical = handle_missing_values(X_categorical, st.session_state.categorical_columns, categorical_missing_value_strategies)
-
-                            # Synchronize indexes between X_continuous and X_categorical
-                            X_continuous, X_categorical = synchronize_indexes(X_continuous, X_categorical)
-
-                        st.divider()
-                        st.header("🔃 인과관계 추론", divider="rainbow")
-
-                        # Example: Combine continuous and categorical data
-                        X = pd.concat([X_continuous, X_categorical], axis=1)
-
-                        # Step 1: Run the PC algorithm to learn causal structure
-                        cg = pc(X.to_numpy(), alpha=0.05)
-
-                        # Step 2: Extract causal edges
-                        def extract_edges(causal_graph, column_names):
-                            edges = []
-                            for i in range(len(causal_graph)):
-                                for j in range(len(causal_graph)):
-                                    if causal_graph[i, j] == 1:  # Direction i → j
-                                        edges.append((column_names[i], column_names[j]))
-                                    elif causal_graph[i, j] == -1:  # Direction j → i
-                                        edges.append((column_names[j], column_names[i]))
-                            return edges
-
-                        edges = extract_edges(cg.G.graph, X.columns)
-
-                        # Step 3: Create a NetworkX graph
-                        causal_graph = nx.DiGraph()
-                        causal_graph.add_edges_from(edges)
-
-                        # Step 4: Visualize the graph with proper padding
-                        def visualize_graph(graph, seed=None, padding_ratio=0.05):
-                            # Generate positions for nodes
-                            pos = nx.spring_layout(graph, seed=seed)
-
-                            # Extract node positions and edges
-                            edge_x = []
-                            edge_y = []
-                            annotations = []
-
-                            for edge in graph.edges():
-                                x0, y0 = pos[edge[0]]  # Start node position
-                                x1, y1 = pos[edge[1]]  # End node position
-
-                                # Calculate vector components and length
-                                dx, dy = x1 - x0, y1 - y0
-                                dist = (dx**2 + dy**2)**0.5
-
-                                # Apply padding to both start and end points
-                                x0_padded = x0 + dx * padding_ratio / dist
-                                y0_padded = y0 + dy * padding_ratio / dist
-                                x1_padded = x1 - dx * padding_ratio / dist
-                                y1_padded = y1 - dy * padding_ratio / dist
-
-                                # Add edges for visual reference
-                                edge_x.append(x0_padded)
-                                edge_x.append(x1_padded)
-                                edge_x.append(None)
-                                edge_y.append(y0_padded)
-                                edge_y.append(y1_padded)
-                                edge_y.append(None)
-
-                                # Add arrow annotations for direction
-                                annotations.append(
-                                    dict(
-                                        ax=x0_padded, ay=y0_padded,  # Adjusted start point
-                                        x=x1_padded, y=y1_padded,  # Adjusted end point
-                                        xref="x", yref="y",
-                                        axref="x", ayref="y",
-                                        showarrow=True,
-                                        arrowhead=3,  # Arrow style
-                                        arrowsize=1.5,  # Arrow size
-                                        arrowwidth=1.5,  # Arrow line width
-                                        arrowcolor="gray"
-                                    )
+                                node_trace = go.Scatter(
+                                    x=node_x,
+                                    y=node_y,
+                                    mode='markers+text',
+                                    text=node_text,
+                                    textfont=dict(family='Times New Roman', size=12, color='black'),
+                                    marker=dict(
+                                        size=60,
+                                        color='lightblue',
+                                        line=dict(width=2, color='darkblue')
+                                    ),
+                                    hoverinfo='text'
                                 )
 
-                            # Create edge traces
-                            edge_trace = go.Scatter(
-                                x=edge_x,
-                                y=edge_y,
-                                line=dict(width=1.5, color='gray'),
-                                hoverinfo='none',
-                                mode='lines'
-                            )
+                                edge_trace = go.Scatter(
+                                    x=edge_x,
+                                    y=edge_y,
+                                    line=dict(width=1.5, color='gray'),
+                                    hoverinfo='none',
+                                    mode='lines'
+                                )
 
-                            # Create node traces
-                            node_x = []
-                            node_y = []
-                            node_text = []
-                            for node in graph.nodes():
-                                x, y = pos[node]
-                                node_x.append(x)
-                                node_y.append(y)
-                                node_text.append(node)
+                                fig = go.Figure(data=[edge_trace, node_trace])
+                                fig.update_layout(
+                                    height=800,
+                                    showlegend=False,
+                                    title_text="인과 그래프",  # Causal Graph
+                                    title_font=dict(family="Times New Roman", size=20, color="black"),
+                                    margin=dict(l=50, r=50, t=50, b=50),
+                                    xaxis=dict(showgrid=False, zeroline=False),
+                                    yaxis=dict(showgrid=False, zeroline=False),
+                                    annotations=annotations
+                                )
 
-                            node_trace = go.Scatter(
-                                x=node_x,
-                                y=node_y,
-                                mode='markers+text',
-                                text=node_text,
-                                textfont=dict(family='Times New Roman', size=12, color='darkblue'),
-                                marker=dict(
-                                    size=30,
-                                    color='lightblue',
-                                    line=dict(width=2, color='darkblue')
-                                ),
-                                hoverinfo='text'
-                            )
+                                st.plotly_chart(fig)
 
-                            # Combine traces
-                            fig = go.Figure(data=[edge_trace, node_trace])
-
-                            # Add arrow annotations for edges
-                            fig.update_layout(
-                                showlegend=False,
-                                title_text="Causal Graph with Padded Nodes and Arrows",
-                                title_font=dict(family="Times New Roman", size=20, color="darkblue"),
-                                margin=dict(l=40, r=40, t=40, b=40),
-                                xaxis=dict(showgrid=False, zeroline=False),
-                                yaxis=dict(showgrid=False, zeroline=False),
-                                annotations=annotations  # Add arrows
-                            )
-
-                            # Display the graph in Streamlit
-                            st.plotly_chart(fig)
-
-                        # Visualize the graph
-                        if "random_seed" not in st.session_state:
-                            st.session_state.random_seed = 99  # Default seed
-
-                        visualize_graph(causal_graph, seed=st.session_state.random_seed)
-
-                        # Add a regenerate button to update the layout
-                        if st.button("Regenerate Layout"):
-                            st.session_state.random_seed = None  # Clear the seed for a new random layout
+                            # 그래프 시각화 호출
                             visualize_graph(causal_graph, seed=st.session_state.random_seed)
 
-                        # hc = HillClimbSearch(X)
-                        # model = hc.estimate(scoring_method=BicScore(X))  # Bayesian Information Criterion (BIC)
+                            # 레이아웃 재생성 버튼
+                            if st.button("레이아웃 재생성", key="regenerate_layout_button"):
+                                st.session_state.random_seed = np.random.randint(0, 9999)  # Randomize the seed
+                                st.success(f"새 레이아웃으로 생성 완료")
+                                visualize_graph(causal_graph, seed=st.session_state.random_seed)
 
-                        # # Display learned edges
-                        # st.write("Learned Causal Edges:", model.edges())
+                                # hc = HillClimbSearch(X)
+                                # model = hc.estimate(scoring_method=BicScore(X))  # Bayesian Information Criterion (BIC)
 
-                        # # Step 5: Create the causal graph
-                        # causal_graph = nx.DiGraph(model.edges)
+                                # # Display learned edges
+                                # st.write("Learned Causal Edges:", model.edges())
 
-                        # # Step 6: Visualize the graph using matplotlib
-                        # plt.figure(figsize=(10, 8))
-                        # plt.rc('font', family='Times New Roman')  # Set font globally
-                        # pos = nx.spring_layout(causal_graph, seed=42)  # Generate positions for nodes
-                        # nx.draw(
-                        #     causal_graph, pos, with_labels=True,
-                        #     node_size=3000,  # Node size
-                        #     node_color="lightblue",  # Node color
-                        #     font_size=12,  # Node label font size
-                        #     font_color="darkblue",  # Node label color
-                        #     edge_color="gray",  # Edge color
-                        #     arrowsize=20,  # Arrow size
-                        #     width=2  # Edge thickness
-                        # )
+                                # # Step 5: Create the causal graph
+                                # causal_graph = nx.DiGraph(model.edges)
 
-                        # # Add edge labels
-                        # edge_labels = {(edge[0], edge[1]): f"{edge[0]}→{edge[1]}" for edge in causal_graph.edges}
-                        # nx.draw_networkx_edge_labels(causal_graph, pos, edge_labels=edge_labels, font_size=10)
+                                # # Step 6: Visualize the graph using matplotlib
+                                # plt.figure(figsize=(10, 8))
+                                # plt.rc('font', family='Times New Roman')  # Set font globally
+                                # pos = nx.spring_layout(causal_graph, seed=42)  # Generate positions for nodes
+                                # nx.draw(
+                                #     causal_graph, pos, with_labels=True,
+                                #     node_size=3000,  # Node size
+                                #     node_color="lightblue",  # Node color
+                                #     font_size=12,  # Node label font size
+                                #     font_color="darkblue",  # Node label color
+                                #     edge_color="gray",  # Edge color
+                                #     arrowsize=20,  # Arrow size
+                                #     width=2  # Edge thickness
+                                # )
 
-                        # # Add a title
-                        # plt.title("Causal Graph Discovered from X", fontsize=18, color="darkblue", pad=20)
+                                # # Add edge labels
+                                # edge_labels = {(edge[0], edge[1]): f"{edge[0]}→{edge[1]}" for edge in causal_graph.edges}
+                                # nx.draw_networkx_edge_labels(causal_graph, pos, edge_labels=edge_labels, font_size=10)
 
-                        # # Step 7: Display the graph in Streamlit
-                        # st.pyplot(plt)
+                                # # Add a title
+                                # plt.title("Causal Graph Discovered from X", fontsize=18, color="darkblue", pad=20)
+
+                                # # Step 7: Display the graph in Streamlit
+                                # st.pyplot(plt)
 
 
             except ValueError as e:
                 st.error("적합하지 않는 데이터를 선택하였습니다. 다시 시도해주세요.")
             except OSError as e:  # 파일 암호화 또는 해독 문제 처리
                 st.error("파일이 암호화된 것 같습니다. 파일의 암호를 푼 후 다시 시도해주세요.")
-
+        
     elif page == "💻 로지스틱 회귀분석":
         st.markdown(
         """
