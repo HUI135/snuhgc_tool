@@ -34,6 +34,11 @@ from causallearn.utils.GraphUtils import GraphUtils
 import matplotlib.pyplot as plt
 import networkx as nx
 import openpyxl
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
 # from causallearn.utils.GraphUtils import graph_to_adjacency_matrix
 
 # wide format
@@ -91,8 +96,8 @@ if login():  # If logged in, show the rest of the app
     # Sidebar with functionality options after login
     st.sidebar.title("기능 선택")
     page = st.sidebar.selectbox(
-        "사용하실 기능을 선택해주세요.",
-        ["-- 선택 --", "ℹ️ 사용설명서", "📁 피봇 변환", "📈 시각화", "📊 특성표 산출", "🔃 인과관계 추론", "📝 판독문 코딩", "💻 로지스틱 회귀분석", "💻 생존분석", "🎖️ H-PEACE 데이터 파악", "⛔ 오류가 발생했어요"],
+        "✔️ 사용하실 기능을 선택해주세요:",
+        ["-- 선택 --", "🔔 사용설명서", "🔀 피봇 변환", "✏️ 데이터 코딩", "📝 판독문 코딩", "♻️ 인과관계 추론", "📈 시각화", "📊 특성표 생성", "💻 로지스틱 회귀분석", "💻 생존분석", "⛔ 오류가 발생했어요"],
         index=0  # Default to "-- 선택 --"
     )
 
@@ -110,20 +115,28 @@ if login():  # If logged in, show the rest of the app
             unsafe_allow_html=True
         )
         st.divider()
-        # Create a checkbox to toggle visibility
-        toggle = st.checkbox("Update 사항 자세히보기 - 24.12.11 Updated")
-        if toggle:
-            st.write("피봇 기능 Age 1 - Age 2- Age 3 등 확인할 것")
-            st.write("파일을 읽는 중 오류가 발생했습니다: There are multiple radio elements with the same auto-generated ID")
-            st.write("시각화 기능 TypeError: pie() got an unexpected keyword argument 'x'")
-            st.write("- (예시) 2024.12.01 📁 피봇 변환 : 오류 수정")
-            st.write("- (예시) 2024.12.11 📈 시각화 : 기능 추가")
 
-    elif page == "ℹ️ 사용설명서":
+        # Create a checkbox to toggle visibility
+        toggle = st.checkbox("**📅24.12.11📅** Update 사항 자세히보기")
+
+        if toggle:
+            st.markdown("""
+            - 데이터 가공 페이지, 삭제 한번 누르면 리스트에 남아있음. 두번 누르면 코드 추가됨 문구 뜸.
+            ### 주요 업데이트 사항
+            - (예시) **🔀 피봇 변환** : 새로운 기능 추가
+            - (예시) **📈 시각화** : 기능 추가 - 파이 차트 생성
+
+            **세부 오류 수정**
+            - (예시) 오류 수정 : `There are multiple radio elements with the same auto-generated ID`
+            - (예시) 파일을 읽는 중 오류가 발생했습니다 : `There are multiple radio elements with the same auto-generated ID`
+            - (예시) 시각화 기능 문제 : `TypeError: pie() got an unexpected keyword argument 'x'`
+            """)
+
+    elif page == "🔔 사용설명서":
         st.markdown(
         """
         <div style="background-color: #e9f5ff; padding: 10px; border-radius: 10px;">
-            <h2 style="color: #000000;">ℹ️  사용설명서</h2>
+            <h2 style="color: #000000;">🔔  사용설명서</h2>
             <p style="font-size:18px; color: #000000;">
             &nbsp;&nbsp;&nbsp;&nbsp;기능 사용설명법을 영상을 통해 살펴보세요.
             </p>
@@ -135,270 +148,17 @@ if login():  # If logged in, show the rest of the app
         st.write(" ")
 
         st.markdown("<h4 style='color:grey;'>어떤 기능이 궁금하신가요?</h4>", unsafe_allow_html=True)
-        selected = st.selectbox("사용설명서를 보실 기능을 선택해주세요.", options=["-- 선택 --", "📁 피봇 변환", "📈 시각화", "📊 특성표 산출", "💻 로지스틱 회귀분석", "💻 생존분석", "🎖️ H-PEACE 데이터 파악", "📝 판독문 코딩"])
+        selected = st.selectbox("✔️ 사용설명서를 보실 기능을 선택해주세요:", options=["-- 선택 --", "🔀 피봇 변환", "📈 시각화", "📊 특성표 생성", "💻 로지스틱 회귀분석", "💻 생존분석", "📝 판독문 코딩"])
         if selected == "-- 선택 --":
             st.write()
         elif selected == "📝 판독문 코딩":
             st.video("https://youtu.be/uE45G40TnTE")
 
-    elif page == "🎖️ H-PEACE 데이터 파악":
-        # 네이버 클라우드 API 인증 정보
-        access_key = "ncp_iam_BPAMKR52lve6ioI12iS1"  # 발급받은 Access Key ID
-        secret_key = "ncp_iam_BPKMKRWniGGEaLImGCq5UB9EkgEQEa7XWV"  # 발급받은 Secret Key
-
-
-        # 네이버 클라우드 Object Storage의 S3 호환 엔드포인트 설정
-        endpoint_url = "https://kr.object.ncloudstorage.com"
-
-        # boto3 클라이언트 생성
-        s3 = boto3.client(
-            's3',
-            aws_access_key_id=access_key,
-            aws_secret_access_key=secret_key,
-            endpoint_url=endpoint_url,
-            config=Config(signature_version='s3v4')  # S3 호환 인증 방식 사용
-        )
-
-        # 버킷의 객체 목록 가져오기
-        bucket_name = "snuhgc"
-        object_name = "hpeace_sample.xlsx"
-
-        try:
-            # S3에서 객체(파일)를 가져옵니다.
-            response = s3.get_object(Bucket=bucket_name, Key=object_name)
-
-            # 파일 내용을 메모리에 로드
-            excel_data = BytesIO(response['Body'].read())
-
-            # Pandas를 사용해 Excel 파일을 DataFrame으로 읽기
-            df = pd.read_excel(excel_data, engine='openpyxl')
-
-            # Streamlit에 DataFrame 출력
-            st.markdown(
-                """
-                <div style="background-color: #e9f5ff; padding: 10px; border-radius: 10px;">
-                    <h2 style="color: #000000;">🎖️ H-PEACE 데이터 파악</h2>
-                    <p style="font-size:18px; color: #000000;">
-                    &nbsp;&nbsp;&nbsp;&nbsp;H-PEACE 데이터를 살펴보세요.
-                    </p>
-                </div>
-                """,
-                unsafe_allow_html=True
-                )
-            st.divider()
-            st.write(" ")
-
-            # Select all df related to the selected patient
-            patient_id = st.selectbox('자료를 보실 환자를 선택해주세요.', ["-- 선택 --"] + list(df['GCID'].unique()))
-            patient_df = st.session_state.df[st.session_state.df['GCID'] == patient_id]
-
-            cat = ['고혈압_여부',
-            '고혈압_투약여부',
-            '당뇨_여부',
-            '당뇨_투약여부',
-            '고지혈증_여부',
-            '고지혈증_투약여부',
-            '협심증/심근경색증_여부',
-            '협심증/심근경색증_투약여부',
-            '협심증/심근경색증_중재수술여부_스텐트',
-            '협심증/심근경색증_수술여부',
-            '뇌졸중(중풍)_여부',
-            '뇌졸중(중풍)_투약여부',
-            '만성신장염/만성신부전_여부',
-            '만성신장염/만성신부전_투약여부',
-            '만성신장염/만성신부전_신기능저하여부',
-            '만성신장염/만성신부전_투석여부',
-            '간경변_여부',
-            '간경변_투약여부',
-            '만성B형_여부',
-            '만성B형_투약여부',
-            '만성C형_여부',
-            '만성C형_투약여부',
-            '폐결핵_여부',
-            '폐결핵_투약여부',
-            '폐결핵_완치여부_치료종결',
-            '폐결핵_반흔여부',
-            '천식_여부',
-            '천식_투약여부',
-            '비염_여부',
-            '비염_투약여부',
-            '고혈압_통합',
-            '당뇨_통합',
-            '고지혈증_통합',
-            '협심증/심근경색증_통합',
-            '뇌졸중(중풍)_통합',
-            '만성신장염/만성신부전_통합',
-            '간경변_통합',
-            '폐결핵_통합',
-            '천식_통합',
-            '폐암_여부',
-            '위암_여부',
-            '대장암/직장암_여부',
-            '간암_여부',
-            '유방암_여부',
-            '자궁경부암_여부',
-            '갑상선암_여부',
-            '전립선암_여부',
-            '기타암_여부',
-            '고혈압_가족력',
-            '당뇨_가족력',
-            '만성간염/간경변_가족력',
-            '뇌졸중(중풍)_가족력',
-            '협심증/심근경색증_가족력',
-            '폐암_가족력',
-            '위암_가족력',
-            '대장암/직장암_가족력',
-            '간암_가족력',
-            '항혈소판제제_복약여부',
-            '항응고제_복약여부',
-            '부정맥약_복약여부',
-            '인슐린주사/펌프_복약여부',
-            '진정제/수면제_복약여부',
-            '항우울제/정신과약물_복약여부',
-            '갑상선약_복약여부',
-            '갑상선기능항진증약_복약여부',
-            '골다공증약_복약여부',
-            '기타약_복약여부',
-            '스테로이드제_복약여부',
-            '소염진통제_복약여부',
-            '한약_복약여부',
-            '칼슘제_복약여부',
-            '일반담배_흡연여부',
-            '일반담배_과거흡연량',
-            '일반담배_현재흡연량',
-            '액상형전자담배_흡연여부',
-            '궐련형전자담배_흡연여부',
-            '고강도_신체활동여부',
-            '중강도_신체활동여부',
-            '저강도_신체활동여부',
-            '고강도_운동여부',
-            '중강도_운동여부']
-
-            num = [
-                '일반담배_과거흡연기간',
-                '일반담배_현재흡연기간',
-                '액상형전자담배_현재흡연빈도',
-                '궐련형전자담배_현재흡연량',
-                '음주빈도',
-                '음주량',
-                '고강도_신체활동빈도',
-                '고강도_신체활동시간',
-                '중강도_신체활동빈도',
-                '중강도_신체활동시간',
-                '저강도_신체활동빈도',
-                '저강도_신체활동시간',
-                '고강도_운동빈도',
-                '고강도_운동시간',
-                '중강도_운동빈도',
-                '중강도_운동시간',
-                '최종학력',
-                '결혼상태',
-                '가계수입']
-
-            # Function to get a combined view of past and current df
-            def combined_status(patient_df, cat):
-                cat_columns = [col for col in patient_df.columns if cat in col]
-                combined_results = {}
-
-                for disease in cat_columns:
-                    if disease in patient_df.columns:
-                        unique_vals = patient_df[disease].unique()
-                        # Initialize an empty string to store check marks, crosses, or question marks in a stacked format
-                        combined_results[disease] = ""
-
-                        # Iterate through unique values
-                        for val in unique_vals:
-                            if pd.isna(val):  # Check if the value is NaN
-                                combined_results[disease] += "❔ "
-                            elif val == 1:
-                                combined_results[disease] += "✔️ "
-                            else:
-                                combined_results[disease] += "❌ "
-
-                return combined_results
-
-            # Display combined information
-            def display_combined_info(combined_results):
-                cols = st.columns(3)  # Create 3 columns to distribute the information
-                for i, (disease, status) in enumerate(combined_results.items()):
-                    cols[i % 3].markdown(f"**{disease}**: {status}")
-
-            # Function to plot lab changes over multiple visits
-            def plot_changes(patient_df, num):
-                # Extract num columns (assuming num columns follow a specific naming pattern)
-                num_columns = [col for col in patient_df.columns if num in col]
-                num_df = []
-
-                # Collect num df across visits
-                for col in num_columns:
-                    # Iterate through all rows (assuming each row represents a visit)
-                    for i in range(len(patient_df)):
-                        if pd.notna(patient_df[col].iloc[i]):
-                            num_df.append((i + 1, patient_df[col].iloc[i]))  # (visit number, num value)
-
-                # Plotting num changes
-                if num_df:
-                    visits, num_values = zip(*num_df)
-
-                    fig = go.Figure()
-                    fig.add_trace(go.Scatter(
-                        x=visits,
-                        y=num_values,
-                        mode='lines+markers',
-                        name=num,
-                        marker=dict(symbol='circle', size=10),
-                    ))
-
-                    fig.update_xaxes(title_text="Visits", dtick=1)
-                    fig.update_yaxes(title_text=f"{num} Levels")
-
-                    fig.update_layout(height=600, width=900, title_text=f"{num}", showlegend=False)
-
-                    return fig
-                else:
-                    return None
-
-            no_data_messages = []
-
-            for col in cat:
-                comorbidity_results = combined_status(patient_df, col)
-                display_combined_info(comorbidity_results)
-
-            for col in num:
-                fig = plot_changes(patient_df, col)
-                if fig:
-                    st.plotly_chart(fig)
-
-            # # Loop through columns and display the results for categorical and numerical data separately
-            # for col in patient_df.columns if col == :
-            #     if patient_df[col].nunique() == 2:  # Checking for categorical columns with two unique values
-            #         if patient_df[col].isnull().all():  # Check if all values in the column are NaN
-            #             no_data_messages.append(f"No meaningful data for {col} in this patient (all values are NaN).")
-            #         else:
-            #             comorbidity_results = combined_status(patient_df, col)
-            #             display_combined_info(comorbidity_results)
-
-            # for col in patient_df.columns:
-            #     if patient_df[col].nunique() >= 3:  # Checking for numerical columns with three or more unique values
-            #         fig = plot_changes(patient_df, col)
-            #         if fig:
-            #             st.plotly_chart(fig)
-            #         else:
-            #             no_data_messages.append(f"No {col} data available for this patient.")
-
-            # Display all "No data available" messages if any
-            if no_data_messages:
-                for message in no_data_messages:
-                    st.write(message)
-
-        except Exception as e:
-            st.write("파일을 불러오는 중 오류가 발생했습니다:", e)
-
-    elif page == "📁 피봇 변환":
+    elif page == "🔀 피봇 변환":
         st.markdown(
         """
         <div style="background-color: #e9f5ff; padding: 10px; border-radius: 10px;">
-            <h2 style="color: #000000;">📁 피봇 변환</h2>
+            <h2 style="color: #000000;">🔀 피봇 변환</h2>
             <p style="font-size:18px; color: #000000;">
             &nbsp;&nbsp;&nbsp;&nbsp;환자의 여러 내원 결과가 포함된 데이터를 열 기반으로 정리하는 기능입니다.
             </p>
@@ -415,7 +175,7 @@ if login():  # If logged in, show the rest of the app
 
         # 1. 파일 업로드
         st.markdown("<h4 style='color:grey;'>데이터 업로드</h4>", unsafe_allow_html=True)
-        uploaded_file = st.file_uploader("환자의 여러 내원 데이터가 행으로 축적되어있는 데이터 파일을 올려주세요.", type=["csv", "xlsx"])
+        uploaded_file = st.file_uploader("📁 환자의 여러 내원 데이터가 행으로 축적되어있는 데이터 파일을 업로드해주세요:", type=["csv", "xlsx"])
 
 
         if uploaded_file is not None:
@@ -442,7 +202,8 @@ if login():  # If logged in, show the rest of the app
 
                         # 시트 선택 옵션에 "-- 선택 --" 추가
                         if len(sheet_names) > 1:
-                            sheet = st.selectbox('업로드하신 파일에 여러 시트가 존재합니다. 이용하실 시트를 선택해주세요.', ["-- 선택 --"] + sheet_names)
+                            st.write(" ")
+                            sheet = st.selectbox('✔️ 업로드하신 파일에 여러 시트가 존재합니다. 이용하실 시트를 선택해주세요:', ["-- 선택 --"] + sheet_names)
 
                             # "-- 선택 --"인 경우 동작 중단
                             if sheet == "-- 선택 --":
@@ -458,11 +219,12 @@ if login():  # If logged in, show the rest of the app
 
                 if 'df' in locals():
 
+                    st.session_state.df = df
                     st.divider()
                     st.markdown("<h4 style='color:grey;'>데이터 미리보기</h4>", unsafe_allow_html=True)
 
                     # Add a radio button for the user to select the option
-                    selected_option = st.radio("옵션을 선택하세요:", ["데이터", "결측수", "요약통계"], key="📁 피봇 변환")
+                    selected_option = st.radio("✔️ 옵션을 선택해주세요:", ["데이터", "결측수", "요약통계"], key="🔀 피봇 변환")
 
                     # Show the corresponding output based on the user's selection
                     if selected_option == "데이터":
@@ -500,12 +262,12 @@ if login():  # If logged in, show the rest of the app
                 st.markdown("<h4 style='color:grey;'>데이터 정보입력</h4>", unsafe_allow_html=True)
 
                 # 유저에게 피벗할 기준 열 선택 (selectbox에 '-- 선택 --' 추가)
-                id_column = st.selectbox("환자를 구분할 ID 혹은 RID 열을 선택해주세요.", ["-- 선택 --"] + list(df.columns))
+                id_column = st.selectbox("✔️ 환자를 구분할 ID 혹은 RID 열을 선택해주세요:", ["-- 선택 --"] + list(df.columns))
                 if id_column == "-- 선택 --":
                     st.write(" ")
                     st.stop()
 
-                date_column = st.selectbox("방문을 구분할 Date 열을 선택해주세요.", ["-- 선택 --"] + list(df.columns))
+                date_column = st.selectbox("✔️ 방문을 구분할 Date 열을 선택해주세요:", ["-- 선택 --"] + list(df.columns))
                 if date_column == "-- 선택 --":
                     st.write(" ")
                     st.stop()
@@ -538,7 +300,7 @@ if login():  # If logged in, show the rest of the app
 
                 # 결과 표시
                 st.divider()
-                st.header("📁 피봇 변환 결과", divider='rainbow')
+                st.header("🔀 피봇 변환 결과", divider='rainbow')
 
                 total_len = len(df)  # Total number of rows
                 unique_len = df[id_column].nunique()  # Number of unique IDs (patients)
@@ -577,100 +339,476 @@ if login():  # If logged in, show the rest of the app
                     long_running_process()  # Run your process here instead of time.sleep()
 
                 st.success("작업이 완료되었습니다!")
+                st.write(" ")
 
                 # 세션 상태에 저장
                 st.session_state.df_pivot = df_pivot
-                st.divider()
                 st.markdown("<h4 style='color:grey;'>피봇 데이터</h4>", unsafe_allow_html=True)
                 st.dataframe(df_pivot)
+
+                st.write(" ")
+                st.markdown("<h4 style='color:grey;'>피봇 데이터 다운로드</h4>", unsafe_allow_html=True)
+
+                # Display the file format selection radio button for original data download
+                export_format_original = st.radio("✔️ 파일 형식을 선택해주세요:", options=["CSV", "Excel"], key="export_format_original")
+
+                # Handle original data download
+                if export_format_original:
+                    if export_format_original == "CSV":
+                        csv = st.session_state.df_pivot.to_csv(index=False).encode('utf-8')
+                        st.download_button(
+                            label="CSV 다운로드",
+                            data=csv,
+                            file_name="pivot_data.csv",
+                            mime='text/csv'
+                        )
+                    elif export_format_original == "Excel":
+                        buffer = BytesIO()
+                        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                            st.session_state.df_pivot.to_excel(writer, index=False)
+                        buffer.seek(0)
+                        st.download_button(
+                            label="Excel 다운로드 (원본 자료)",
+                            data=buffer,
+                            file_name="pivot_data.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
 
                 # Initialize session state for df_pivot and button states if they are not already present
                 if "df_pivot" not in st.session_state:
                     st.session_state.df_pivot = df_pivot  # Load df_pivot data if not already loaded
                 if "filter_button_pressed" not in st.session_state:
                     st.session_state.filter_button_pressed = False
+                if "plot_button_pressed" not in st.session_state:
+                    st.session_state.plot_button_pressed = False
                 if "download_button_pressed" not in st.session_state:
                     st.session_state.download_button_pressed = False
                 if "download_filtered_button_pressed" not in st.session_state:
                     st.session_state.download_filtered_button_pressed = False
 
-                # Display additional functionalities only if df_pivot is present in the session state
-                if st.session_state.df_pivot is not None:
+                # 피벗에 사용된 열 제외
+                excluded_columns = [id_column, date_column]
+
+                # 시각화
+                if st.session_state.get("df_pivot") is not None:
                     st.divider()
-                    st.markdown("<h4 style='color:grey;'>추가 작업 수행</h4>", unsafe_allow_html=True)
+                    st.header("🔀 피봇 데이터 시각화", divider="rainbow")
 
-                    # Filter button in a row
-                    if st.button("재진 필터링"):
-                        # Update session state to indicate that the filter button was pressed
-                        st.session_state.filter_button_pressed = True
+                    # 원본 데이터프레임에서 제외된 열을 제거하여 선택 가능한 열 생성
+                    original_columns = [col for col in st.session_state.df.columns if col not in excluded_columns]
+                    selected_column_base = st.selectbox("✔️ 시각화할 변수 열을 선택해주세요:", ["-- 선택 --"] + original_columns)
 
-                    # Filter functionality with dynamic column dropping if filter_button is pressed
-                    if st.session_state.filter_button_pressed:
-                        num = st.selectbox("최대 내원 횟수를 n회로 지정합니다.", ["-- 선택 --"] + list(range(1, max_len)))
+                    if selected_column_base != "-- 선택 --":
+                        # 피벗 데이터프레임에서 선택한 열에 해당하는 관련 열 필터링
+                        visit_columns = [
+                            col for col in st.session_state.df_pivot.columns 
+                            if col.startswith(selected_column_base + '_')
+                        ]
 
-                        if num != "-- 선택 --":
-                            # Determine columns to keep based on the selected max visit count
-                            columns_to_keep = [col for col in st.session_state.df_pivot.columns
-                                            if not any(col.endswith(f"_{i}") for i in range(num + 1, max_len + 1))]
+                        if visit_columns:
+                            # 각 방문 회차별 평균 계산
+                            mean_values = st.session_state.df_pivot[visit_columns].mean()
 
-                            # Filter the DataFrame based on selected columns
-                            df_pivot_filtered = st.session_state.df_pivot[columns_to_keep]
-                            st.session_state.df_pivot_filtered = df_pivot_filtered
+                            # Function to plot average LabResult changes across visits
+                            def plot_average_changes(mean_values):
+                                visit_numbers = [int(col.split('_')[1]) for col in mean_values.index]
+                                avg_values = mean_values.values
 
-                            # Display the filtered DataFrame
-                            st.dataframe(df_pivot_filtered, use_container_width=True)
+                                fig = go.Figure()
+                                fig.add_trace(go.Scatter(
+                                    x=visit_numbers,
+                                    y=avg_values,
+                                    mode='lines+markers',
+                                    name="Average LabResult",
+                                    marker=dict(symbol='circle', size=10)
+                                ))
 
-                            export_format_filtered = st.radio("다운로드하실 자료 파일 형식을 선택하세요.", options=["CSV", "Excel"], key="export_format_filtered")
+                                fig.update_xaxes(title_text="Visits", dtick=1)
+                                fig.update_yaxes(title_text=f"Average {selected_column_base}")
+                                fig.update_layout(
+                                    height=600,
+                                    width=900,
+                                    title_text=f"Average {selected_column_base} Trends Across Visits",
+                                    showlegend=True
+                                )
+                                return fig
 
-                            # Handle filtered data download
-                            if export_format_filtered:
-                                if export_format_filtered == "CSV":
-                                    csv = st.session_state.df_pivot_filtered.to_csv(index=False).encode('utf-8')
-                                    st.download_button(
-                                        label="CSV 다운로드 (필터 자료)",
-                                        data=csv,
-                                        file_name="pivot_data_filtered.csv",
-                                        mime='text/csv'
-                                    )
-                                elif export_format_filtered == "Excel":
-                                    buffer = BytesIO()
-                                    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                                        st.session_state.df_pivot_filtered.to_excel(writer, index=False)
-                                    buffer.seek(0)
-                                    st.download_button(
-                                        label="Excel 다운로드 (필터 자료)",
-                                        data=buffer,
-                                        file_name="pivot_data_filtered.xlsx",
-                                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                                    )
+                            # Generate and display the plot
+                            fig = plot_average_changes(mean_values)
+                            st.plotly_chart(fig, use_container_width=True)
+                        else:
+                            st.warning("선택한 변수와 관련된 열이 피봇 데이터프레임에 없습니다.")
+
+                # Filter button in a row
+                if st.session_state.get("df_pivot") is not None:
+                    # Display a divider and a section header
+                    st.divider()
+                    st.header("🔀 피봇 데이터 필터링", divider="rainbow")
+                    num = st.selectbox("✔️ 최대 내원 횟수를 n회로 필터링합니다:", ["-- 선택 --"] + list(range(1, max_len)))
+
+                    if num != "-- 선택 --":
+                        # Determine columns to keep based on the selected max visit count
+                        columns_to_keep = [col for col in st.session_state.df_pivot.columns
+                                        if not any(col.endswith(f"_{i}") for i in range(num + 1, max_len + 1))]
+
+                        # Filter the DataFrame based on selected columns
+                        df_pivot_filtered = st.session_state.df_pivot[columns_to_keep]
+                        st.session_state.df_pivot_filtered = df_pivot_filtered
+
+                        # Display the filtered DataFrame
+                        st.dataframe(df_pivot_filtered, use_container_width=True)
+
+                        st.write(" ")
+                        st.markdown("<h4 style='color:grey;'>피봇(필터) 데이터 다운로드</h4>", unsafe_allow_html=True)
+
+                        export_format_filtered = st.radio("✔️ 파일 형식을 선택해주세요:", options=["CSV", "Excel"], key="export_format_filtered")
+
+                        # Handle filtered data download
+                        if export_format_filtered:
+                            if export_format_filtered == "CSV":
+                                csv = st.session_state.df_pivot_filtered.to_csv(index=False).encode('utf-8')
+                                st.download_button(
+                                    label="CSV 다운로드 (필터 자료)",
+                                    data=csv,
+                                    file_name="pivot_data_filtered.csv",
+                                    mime='text/csv'
+                                )
+                            elif export_format_filtered == "Excel":
+                                buffer = BytesIO()
+                                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                                    st.session_state.df_pivot_filtered.to_excel(writer, index=False)
+                                buffer.seek(0)
+                                st.download_button(
+                                    label="Excel 다운로드 (필터 자료)",
+                                    data=buffer,
+                                    file_name="pivot_data_filtered.xlsx",
+                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                )
+
+            except OSError as e:  # 파일 암호화 또는 해독 문제 처리
+                st.error("파일이 암호화된 것 같습니다. 파일의 암호를 푼 후 다시 시도해주세요.")
+            except Exception as e:
+                st.error(f"파일을 읽는 중 오류가 발생했습니다: {str(e)}")
+
+    elif page == "✏️ 데이터 코딩":
+        st.markdown(
+        """
+        <div style="background-color: #e9f5ff; padding: 10px; border-radius: 10px;">
+            <h2 style="color: #000000;">✏️ 데이터 코딩</h2>
+            <p style="font-size:18px; color: #000000;">
+            &nbsp;&nbsp;&nbsp;&nbsp;코딩이 필요한 데이터를 업로드하신 후 원하시는 코딩을 수행하세요.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+        )
+        st.divider()
+        st.write(" ")
+
+        # Track the uploaded file in session state to reset the UI when a new file is uploaded
+        if 'uploaded_file' not in st.session_state:
+            st.session_state.uploaded_file = None
+
+        # 1. 파일 업로드
+        st.markdown("<h4 style='color:grey;'>데이터 업로드</h4>", unsafe_allow_html=True)
+        uploaded_file = st.file_uploader("📁 코딩을 수행하실 데이터 파일을 업로드해주세요:", type=["csv", "xlsx"])
+
+        if uploaded_file is not None:
+            # 파일이 새로 업로드되었을 때 세션 상태 초기화
+            try:
+                # 파일 크기가 큰 경우를 대비해 오류 처리
+                if uploaded_file.size > 200 * 1024 * 1024:  # 200MB 제한
+                    raise ValueError("파일 크기가 너무 큽니다. 행의 개수 혹은 열의 개수를 줄인 후 다시 업로드해주세요.")
+
+                if st.session_state.uploaded_file != uploaded_file:
+                    st.session_state.uploaded_file = uploaded_file
+                    st.session_state.phrases_by_code = {}
+                    st.session_state.text_input = ""
+                    st.session_state.code_input = ""
+                    st.session_state.coded_df = None  # Initialize session state for coded DataFrame
+
+                if uploaded_file:  # 파일이 업로드된 경우에만 실행
+                    # 파일 타입에 따라 데이터 읽기
+                    if uploaded_file.name.endswith(".csv"):
+                        df = pd.read_csv(uploaded_file)
+                    elif uploaded_file.name.endswith(".xlsx"):
+                        xls = pd.ExcelFile(uploaded_file)
+                        sheet_names = xls.sheet_names
+
+                        # 시트 선택 옵션에 "-- 선택 --" 추가
+                        if len(sheet_names) > 1:
+                            st.write(" ")
+                            sheet = st.selectbox('✔️ 업로드하신 파일에 여러 시트가 존재합니다. 이용하실 시트를 선택해주세요:', ["-- 선택 --"] + sheet_names)
+
+                            # "-- 선택 --"인 경우 동작 중단
+                            if sheet == "-- 선택 --":
+                                st.stop()  # 이후 코드를 실행하지 않도록 중단
+                            else:
+                                df = pd.read_excel(uploaded_file, sheet_name=sheet)
+                        elif len(sheet_names) == 1:
+                            # 시트가 1개만 있는 경우
+                            df = pd.read_excel(uploaded_file, sheet_name=sheet_names[0])
+                        else:
+                            st.error("엑셀 파일에 시트가 없습니다.")
+                            st.stop()
+
+                # 데이터 미리보기 표시
+                if 'df' in locals():
 
                     st.divider()
-                    st.markdown("<h4 style='color:grey;'>데이터 다운로드</h4>", unsafe_allow_html=True)
+                    st.markdown("<h4 style='color:grey;'>데이터 미리보기</h4>", unsafe_allow_html=True)
 
-                    # Display the file format selection radio button for original data download
-                    export_format_original = st.radio("다운로드하실 자료 파일 형식을 선택하세요.", options=["CSV", "Excel"], key="export_format_original")
+                    # Add a radio button for the user to select the option
+                    selected_option = st.radio("✔️ 옵션을 선택해주세요:", ["데이터", "결측수", "요약통계"], key="✏️ 데이터 코딩")
 
-                    # Handle original data download
-                    if export_format_original:
-                        if export_format_original == "CSV":
-                            csv = st.session_state.df_pivot.to_csv(index=False).encode('utf-8')
-                            st.download_button(
-                                label="CSV 다운로드",
-                                data=csv,
-                                file_name="pivot_data.csv",
-                                mime='text/csv'
+                    # Show the corresponding output based on the user's selection
+                    if selected_option == "데이터":
+                        # Display the data
+                        st.dataframe(df, use_container_width=True)
+
+                    elif selected_option == "결측수":
+                        # Calculate counts, missing counts, and percentages
+                        counts = df.notna().sum()
+                        missing_counts = df.isna().sum()
+                        missing_percentages = (df.isna().mean()) * 100
+
+                        # Format counts and missing counts with 1000 separators and percentages
+                        counts_formatted = counts.apply(lambda x: f"{x:,}")
+                        missing_counts_formatted = missing_counts.apply(lambda x: f"{x:,}")
+                        missing_percentages_formatted = missing_percentages.round(2).astype(str) + '%'
+
+                        # Create a DataFrame with the formatted information
+                        missing_info = pd.DataFrame({
+                            'Columns': df.columns,
+                            'Count': counts_formatted,
+                            'Missing Count': missing_counts_formatted,
+                            'Missing Percentage': missing_percentages_formatted
+                        }).reset_index(drop=True)
+
+                        # Display the missing information
+                        st.dataframe(missing_info, use_container_width=True)
+
+                    elif selected_option == "요약통계":
+                        # Display summary statistics
+                        st.dataframe(df.describe(), use_container_width=True)
+
+                    # 판독문 열 선택창
+                    st.divider()
+                    st.header("✏️ 데이터 코딩", divider='rainbow')
+                    st.markdown(
+                        """
+                        <style>
+                        .custom-callout {
+                            background-color: #f9f9f9;
+                            padding: 10px;
+                            border-radius: 10px;
+                            border: 1px solid #d3d3d3;
+                            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+                        }
+                        .custom-callout p {
+                            margin: 0;
+                            color: #000000;
+                            font-size: 14px;
+                            line-height: 1.4;
+                            text-align: left;
+                        }
+                        </style>
+                        <div class="custom-callout">
+                            <p><strong>하단에 생성할 코딩 열의 이름을 입력 후, 조건을 입력하면 코딩이 이뤄집니다. 조건에 포함되지 않는 경우, 0으로 코딩됩니다.</strong></p>
+                            <p>🔔 주의!) 간단한 코딩 기능만을 제공하므로, 그외의 코딩이 필요하신 경우 문의를 부탁드립니다.</p>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+                    st.write(" ")
+                    st.write(" ")
+
+                    columns = df.columns.tolist()
+                    columns.insert(0, "-- 선택 --")
+
+                    # 선택된 열을 기반으로 작업
+                    st.session_state.df = df  # Ensure df is stored initially
+                    columns = df.columns.tolist()
+
+                    # 초기 상태 설정
+                    if "codes" not in st.session_state:
+                        st.session_state.codes = []  # 코딩 코드 리스트
+                    if "conditions" not in st.session_state:
+                        st.session_state.conditions = {}  # 코드별 조건 딕셔너리
+                    if "conditions_complete" not in st.session_state:
+                        st.session_state.conditions_complete = {}  # 코드별 완료된 조건 설명
+
+                    def add_condition_ui(code):
+                        """조건 설정 UI 생성 함수"""
+                        st.divider()
+                        st.markdown(f"<h4 style='color:grey;'>코드 {code}에 대한 조건 설정</h4>", unsafe_allow_html=True)
+
+                        # 조건 추가/삭제 버튼
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.button(f"➕ 조건 추가", key=f"add_condition_{code}"):
+                                st.session_state.conditions[code].append(
+                                    {"column": None, "operator": None, "value": None, "logic": f"AND 조건 {len(st.session_state.conditions[code])}"}
+                                )
+                        with col2:
+                            if st.button(f"❌ 조건 삭제", key=f"remove_condition_{code}"):
+                                if len(st.session_state.conditions[code]) > 2:
+                                    st.session_state.conditions[code].pop()
+
+                        # 조건 UI 생성
+                        for idx, cond in enumerate(st.session_state.conditions[code], start=1):
+                            st.markdown(f"- 조건 {idx}")
+                            columns = st.columns([2, 2, 2, 2] if idx > 1 else [2, 2, 2])
+                            if idx > 1:
+                                cond["logic"] = columns[0].selectbox(
+                                    "✔️ 논리",
+                                    options=[f"AND 조건 {idx - 1}", f"OR 조건 {idx - 1}", f"NOT 조건 {idx - 1}"],
+                                    key=f"logic_{code}_{idx}",
+                                )
+                            cond["column"] = columns[-3].selectbox(
+                                "✔️ 사용할 열",
+                                options=["-- 선택 --"] + df.columns.tolist(),
+                                key=f"col_{code}_{idx}",
                             )
-                        elif export_format_original == "Excel":
-                            buffer = BytesIO()
-                            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                                st.session_state.df_pivot.to_excel(writer, index=False)
-                            buffer.seek(0)
-                            st.download_button(
-                                label="Excel 다운로드 (원본 자료)",
-                                data=buffer,
-                                file_name="pivot_data.xlsx",
-                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            cond["value"] = columns[-2].number_input(
+                                "✔️ 값",
+                                step=1,
+                                key=f"value_{code}_{idx}",
                             )
+                            cond["operator"] = columns[-1].selectbox(
+                                "✔️ 연산",
+                                options=["이상", "이하", "미만", "초과", "같음"],
+                                key=f"operator_{code}_{idx}",
+                            )
+
+                        # 조건 입력 완료 버튼
+                        if st.button(f"조건 입력 완료", key=f"complete_conditions_{code}"):
+                            descriptions = []
+                            for idx, cond in enumerate(st.session_state.conditions[code], start=1):
+                                logic_word = "" if idx == 1 else cond["logic"]
+                                column = cond["column"] or "미선택"
+                                operator = cond["operator"] or "미선택"
+                                value = cond["value"] or "미설정"
+                                description = f"{logic_word} {column}이(가) {value} {operator}"
+                                descriptions.append(description)
+                            st.session_state.conditions_complete[code] = " ".join(descriptions)
+                            # st.success(f"코드 {code}에 대한 조건이 입력 완료되었습니다!")
+                            st.markdown(
+                                f"""
+                                <div style="
+                                    padding: 10px;
+                                    background-color: #222222;
+                                    border: 1px solid #444444;
+                                    border-radius: 5px;
+                                    color: #ffffff;
+                                    font-size: 14px;">
+                                    <strong>{description}</strong>에 해당하는 경우 {code}로 코딩됩니다.
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
+
+                    # UI 구성
+                    st.markdown("<h4 style='color:grey;'>코드 추가</h4>", unsafe_allow_html=True)
+
+                    # 새로운 열 이름 입력
+                    new_column_name = st.text_input("▶️ 코딩으로 생성할 데이터 열의 이름을 작성 후 엔터를 눌러주세요:")
+                    if new_column_name:
+                        if new_column_name not in df.columns:
+                            df[new_column_name] = np.nan  # 기본적으로 NaN으로 채움
+                            st.markdown(f"코딩 결과가 저장될 열: **{new_column_name}**", unsafe_allow_html=True)
+
+                    # 새 코드 추가
+                    new_code = st.text_input("▶️ 추가할 코드를 입력 후 엔터를 눌러주세요:")
+                    if new_code and new_code not in st.session_state.get("codes", []):
+                        if "codes" not in st.session_state:
+                            st.session_state.codes = []  # 초기화
+                        if "conditions" not in st.session_state:
+                            st.session_state.conditions = {}  # 초기화
+                        
+                        st.session_state.codes.append(new_code)
+                        st.session_state.conditions[new_code] = [
+                            {"column": None, "operator": None, "value": None, "logic": None},  # 조건 1
+                            {"column": None, "operator": None, "value": None, "logic": "AND 조건 1"},  # 조건 2
+                        ]
+                        st.success(f"코드 {new_code}가 추가되었습니다!")
+
+                    # 추가된 코드 리스트 표시
+                    if st.session_state.get("codes", []):
+                        st.markdown("<h4 style='color:grey;'>추가된 코드 리스트</h4>", unsafe_allow_html=True)
+
+                        # 반복문으로 코드 표시 및 삭제 버튼 생성
+                        codes_to_remove = []
+                        for idx, code in enumerate(st.session_state.codes, start=1):
+                            col1, col2 = st.columns([4, 1])  # 두 개의 열 생성: 코드 표시와 삭제 버튼
+                            with col1:
+                                st.markdown(f"✅ 코드 **{code}**")
+                            with col2:
+                                if st.button(f"❌ 삭제", key=f"delete_{code}_{idx}"):
+                                    # 삭제할 코드를 별도 리스트에 추가
+                                    codes_to_remove.append(code)
+
+                        # 삭제 요청된 코드 처리
+                        if codes_to_remove:
+                            for code in codes_to_remove:
+                                if code in st.session_state.codes:
+                                    st.session_state.codes.remove(code)  # 코드 리스트에서 삭제
+                                if code in st.session_state.conditions:
+                                    del st.session_state.conditions[code]  # 조건도 삭제
+
+                    # 각 코드별 조건 설정
+                    for code in st.session_state.codes:
+                        add_condition_ui(code)
+
+
+                        # # Display download buttons only if coding is performed
+                        # if st.session_state["coding_performed"]:
+                        #     st.divider()
+                        #     st.markdown("<h4 style='color:grey;'>코딩 데이터 다운로드</h4>", unsafe_allow_html=True)
+
+                        #     st.markdown(
+                        #         f"""
+                        #         <p style="font-size:14px; color:grey;">* 원본 데이터에 {new_column_name} 열이 추가된 데이터를 다운 받습니다.</strong></p>
+                        #         """,
+                        #         unsafe_allow_html=True
+                        #     )
+
+                        #     # Preserve export format selection state
+                        #     if "export_format" not in st.session_state:
+                        #         st.session_state.export_format = "CSV"
+
+                        #     export_format = st.radio(
+                        #         "✔️ 파일 형식을 선택해주세요:",
+                        #         options=["CSV", "Excel"],
+                        #         key="export_format",
+                        #         index=["CSV", "Excel"].index(st.session_state.export_format)
+                        #     )
+
+                        #     # CSV 다운로드
+                        #     if export_format == "CSV":
+                        #         csv = st.session_state.coded_df.to_csv(index=False).encode('utf-8')
+                        #         st.download_button(
+                        #             label="CSV 다운로드",
+                        #             data=csv,
+                        #             file_name="bc_table.csv",
+                        #             mime='text/csv',
+                        #             key="csv_download_button"
+                        #         )
+
+                        #     # Excel 다운로드
+                        #     elif export_format == "Excel":
+                        #         buffer = BytesIO()
+                        #         with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                        #             st.session_state.coded_df.to_excel(writer, index=False)
+                        #         buffer.seek(0)  # Reset buffer position
+                        #         st.download_button(
+                        #             label="Excel 다운로드",
+                        #             data=buffer,
+                        #             file_name="bc_table.xlsx",
+                        #             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        #             key="excel_download_button"
+                        #         )
 
             except OSError as e:  # 파일 암호화 또는 해독 문제 처리
                 st.error("파일이 암호화된 것 같습니다. 파일의 암호를 푼 후 다시 시도해주세요.")
@@ -698,7 +836,7 @@ if login():  # If logged in, show the rest of the app
 
         # 1. 파일 업로드
         st.markdown("<h4 style='color:grey;'>데이터 업로드</h4>", unsafe_allow_html=True)
-        uploaded_file = st.file_uploader("판독문 텍스트 열을 포함한 파일을 업로드하세요.", type=["csv", "xlsx"])
+        uploaded_file = st.file_uploader("📁 판독문 텍스트 열을 포함한 파일을 업로드해주세요:", type=["csv", "xlsx"])
 
         if uploaded_file is not None:
             # 파일이 새로 업로드되었을 때 세션 상태 초기화
@@ -724,7 +862,8 @@ if login():  # If logged in, show the rest of the app
 
                         # 시트 선택 옵션에 "-- 선택 --" 추가
                         if len(sheet_names) > 1:
-                            sheet = st.selectbox('업로드하신 파일에 여러 시트가 존재합니다. 이용하실 시트를 선택해주세요.', ["-- 선택 --"] + sheet_names)
+                            st.write(" ")
+                            sheet = st.selectbox('✔️ 업로드하신 파일에 여러 시트가 존재합니다. 이용하실 시트를 선택해주세요:', ["-- 선택 --"] + sheet_names)
 
                             # "-- 선택 --"인 경우 동작 중단
                             if sheet == "-- 선택 --":
@@ -745,7 +884,7 @@ if login():  # If logged in, show the rest of the app
                     st.markdown("<h4 style='color:grey;'>데이터 미리보기</h4>", unsafe_allow_html=True)
 
                     # Add a radio button for the user to select the option
-                    selected_option = st.radio("옵션을 선택하세요:", ["데이터", "결측수", "요약통계"], key="📝 판독문 코딩")
+                    selected_option = st.radio("✔️ 옵션을 선택해주세요:", ["데이터", "결측수", "요약통계"], key="📝 판독문 코딩")
 
                     # Show the corresponding output based on the user's selection
                     if selected_option == "데이터":
@@ -781,167 +920,172 @@ if login():  # If logged in, show the rest of the app
                     # 판독문 열 선택창
                     st.divider()
                     st.markdown("<h4 style='color:grey;'>판독문 텍스트 열 선택</h4>", unsafe_allow_html=True)
-                    column_selected = st.selectbox("코딩할 판독문 텍스트 열을 선택하세요.", options=df.columns)
+                    columns = df.columns.tolist()
+                    columns.insert(0, "-- 선택 --")
 
-                    # 'coding' 열 추가
-                    if 'coding' not in df.columns:
-                        df['coding'] = np.nan  # 기본적으로 nan으로 채움
+                    selected_column = st.selectbox("✔️ 코딩할 판독문 텍스트 열을 선택해주세요:", options=columns)
+                    if selected_column != "-- 선택 --":
+                        # 'coding' 열 추가
+                        if 'coding' not in df.columns:
+                            df['coding'] = np.nan  # 기본적으로 nan으로 채움
 
-                    # 선택된 열을 기반으로 작업
-                    st.session_state.df = df  # Ensure df is stored initially
+                        # 선택된 열을 기반으로 작업
+                        st.session_state.df = df  # Ensure df is stored initially
 
 
-                # Session state initialization for phrases (reset on new file upload)
-                if 'phrases_by_code' not in st.session_state:
-                    st.session_state.phrases_by_code = {}  # Session state to hold phrases and codes
+                    # Session state initialization for phrases (reset on new file upload)
+                    if 'phrases_by_code' not in st.session_state:
+                        st.session_state.phrases_by_code = {}  # Session state to hold phrases and codes
 
-                st.divider()
-                st.header("📝 판독문 코딩", divider='rainbow')
-                st.markdown(
-                    """
-                    <style>
-                    .custom-callout {
-                        background-color: #f9f9f9;
-                        padding: 10px;
-                        border-radius: 10px;
-                        border: 1px solid #d3d3d3;
-                        box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
-                    }
-                    .custom-callout p {
-                        margin: 0;
-                        color: #000000;
-                        font-size: 14px;
-                        line-height: 1.4;
-                        text-align: left;
-                    }
-                    </style>
-                    <div class="custom-callout">
-                        <p>하단에 코드와 함께 텍스트를 입력 시, 해당 텍스트가 포함된 판독문 행은 함께 입력된 코드로 코딩이 이뤄집니다.</p>
-                        <p> </p>
-                        <p>🔔 주의!) 먼저 입력한 코드 내용보다 뒤에 입력한 코드 내용에 높은 우선순위가 부여됩니다.</p>
-                        <p>    - Case 1) 코드 1과 "disease1" 입력 후, 코드 2와 다시 "disease1" 입력: "disease1"이 포함된 행은 2로 코딩됩니다.</p>
-                        <p>    - Case 2) 코드 1과 "disease1" 입력 후, 코드 2와 "disease2" 입력: "disease1, disease2" 모두 포함된 행은 2로 코딩됩니다.</p>
-                        </p>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-                st.write(" ")
+                    st.divider()
+                    st.header("📝 판독문 코딩", divider='rainbow')
+                    st.markdown(
+                        """
+                        <style>
+                        .custom-callout {
+                            background-color: #f9f9f9;
+                            padding: 10px;
+                            border-radius: 10px;
+                            border: 1px solid #d3d3d3;
+                            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+                        }
+                        .custom-callout p {
+                            margin: 0;
+                            color: #000000;
+                            font-size: 14px;
+                            line-height: 1.4;
+                            text-align: left;
+                        }
+                        </style>
+                        <div class="custom-callout">
+                            <p><strong>하단에 코드와 함께 텍스트를 입력 시, 해당 텍스트가 포함된 판독문 행은 함께 입력된 코드로 코딩이 이뤄집니다.</p>
+                            <br>
+                            <p>🔔 주의!) 먼저 입력한 코드 내용보다 뒤에 입력한 코드 내용에 높은 우선순위가 부여됩니다.</p>
+                            <div style="margin-left: 20px;">
+                            <p>- Case 1) 코드 1과 "disease1" 입력 후, 코드 2와 다시 "disease1" 입력: "disease1"이 포함된 행은 2로 코딩됩니다.</p>
+                            <p>- Case 2) 코드 1과 "disease1" 입력 후, 코드 2와 "disease2" 입력: "disease1, disease2" 모두 포함된 행은 2로 코딩됩니다.</p>
+                            </p>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
 
-                current_code = st.text_input("코드를 입력하고 엔터를 누르세요. (ex - 0, 1, 2)", key="code_input")
-
-                if current_code:
-                    current_code = int(current_code)  # Convert to integer code
-
-                    # Check if current code already exists in session state
-                    if current_code not in st.session_state.phrases_by_code:
-                        st.session_state.phrases_by_code[current_code] = []  # Create a new list for this code if doesn't exist
-
-                    # Define a callback function to handle text input
-                    def add_text():
-                        if st.session_state.text_input:
-                            st.session_state.phrases_by_code[current_code].append(st.session_state.text_input)
-                            st.session_state.text_input = ""  # Reset the input field
-
-                    # Allow multiple text input with callback
-                    st.text_input("텍스트를 입력하고 엔터를 누르세요.", key="text_input", on_change=add_text)
-
-                # 4. 입력된 코딩 및 텍스트 목록 표시 및 삭제 기능 추가
-                if st.session_state.phrases_by_code:
                     st.write(" ")
                     st.write(" ")
-                    st.markdown("<h5>현재 입력된 코드 및 텍스트 목록 :</h5>", unsafe_allow_html=True)
-                    for code, phrases in st.session_state.phrases_by_code.items():
-                        st.markdown(f"<span style='color:red;'>코드 {code}에 대한 텍스트:</span>", unsafe_allow_html=True)
-                        # Create a dynamic list where phrases can be deleted
-                        for phrase in phrases:
-                            col1, col2 = st.columns([4, 1])
-                            with col1:
-                                st.markdown(f"<span style='color:red;'>- {phrase}</span>", unsafe_allow_html=True)
-                            with col2:
-                                if st.button(f"삭제", key=f"delete_{code}_{phrase}"):
-                                    st.session_state.phrases_by_code[code].remove(phrase)  # Remove the phrase from the list
-                                    # Force rerun by altering a session state value
-                                    st.session_state["rerun_trigger"] = not st.session_state.get("rerun_trigger", False)
+                    current_code = st.text_input("▶️ 코드를 입력하고 엔터를 누르세요: (ex - 0, 1, 2)", key="code_input")
 
-                # 5. 미처리 항목을 자동으로 0으로 처리 또는 다른 방식 처리
-                st.divider()
-                st.markdown("<h4 style='color:grey;'>코딩되지 않은 그 외 판독문 처리 방법</h4>", unsafe_allow_html=True)
+                    if current_code:
+                        current_code = int(current_code)  # Convert to integer code
 
-                # Use radio buttons to select between filling with 0 or missing
-                fill_option = st.radio("처리 방법을 선택하세요.", ("전부 0으로", "전부 99로", "전부 공백으로"))
+                        # Check if current code already exists in session state
+                        if current_code not in st.session_state.phrases_by_code:
+                            st.session_state.phrases_by_code[current_code] = []  # Create a new list for this code if doesn't exist
 
-                # 3. 완료 버튼 - 텍스트 입력 후 활성화
-                st.divider()
-                st.markdown("<h4 style='color:grey;'>코딩 작업 종료하기</h4>", unsafe_allow_html=True)
-                if current_code and st.session_state.phrases_by_code[current_code]:
-                    if st.button("코딩 종료"):
-                        # Create a temporary lowercase column for matching
-                        df = st.session_state.df.copy()  # Use session_state to preserve df between runs
-                        df['lower_temp'] = df[column_selected].str.lower()
+                        # Define a callback function to handle text input
+                        def add_text():
+                            if st.session_state.text_input:
+                                st.session_state.phrases_by_code[current_code].append(st.session_state.text_input)
+                                st.session_state.text_input = ""  # Reset the input field
 
-                        # Process the text for each code
+                        # Allow multiple text input with callback
+                        st.text_input("▶️ 텍스트를 입력하고 엔터를 누르세요:", key="text_input", on_change=add_text)
+
+                    # 4. 입력된 코딩 및 텍스트 목록 표시 및 삭제 기능 추가
+                    if st.session_state.phrases_by_code:
+                        st.write(" ")
+                        st.write(" ")
+                        st.markdown("<h5>현재 입력된 코드 및 텍스트 목록 :</h5>", unsafe_allow_html=True)
                         for code, phrases in st.session_state.phrases_by_code.items():
+                            st.markdown(f"<strong><span style='color:#526E48;'>✅ 코드 {code}에 대한 텍스트:</span>", unsafe_allow_html=True)
+                            # Create a dynamic list where phrases can be deleted
                             for phrase in phrases:
-                                # Match against the lowercase temporary column
-                                df['coding'] = df['coding'].where(~df['lower_temp'].str.contains(phrase.lower(), na=False), code)
+                                col1, col2 = st.columns([4, 1])
+                                with col1:
+                                    st.markdown(f"<div style='margin-left: 20px;'><span style='color:#AB4459;'>- {phrase}</span>", unsafe_allow_html=True)
+                                with col2:
+                                    if st.button(f"삭제", key=f"delete_{code}_{phrase}"):
+                                        st.session_state.phrases_by_code[code].remove(phrase)  # Remove the phrase from the list
+                                        # Force rerun by altering a session state value
+                                        st.session_state["rerun_trigger"] = not st.session_state.get("rerun_trigger", False)
 
-                        # Apply the appropriate fill method based on the radio selection
-                        if fill_option == "전부 0으로":
-                            df['coding'].fillna(0, inplace=True)
-                        elif fill_option == "전부 99로":
-                            df['coding'].fillna(99, inplace=True)
-                        elif fill_option == "전부 공백":
-                            df['coding'].fillna(np.nan, inplace=True)
+                    # 5. 미처리 항목을 자동으로 0으로 처리 또는 다른 방식 처리
+                    st.divider()
+                    st.markdown("<h4 style='color:grey;'>코딩되지 않은 그 외 판독문 처리 방법</h4>", unsafe_allow_html=True)
 
-                        # Drop the temporary column after coding
-                        df.drop(columns=['lower_temp'], inplace=True)
+                    # Use radio buttons to select between filling with 0 or missing
+                    fill_option = st.radio("✔️ 처리 방법을 선택해주세요:", ("전부 0으로", "전부 99로", "전부 공백으로"))
 
-                        # Store the coded DataFrame in session state
-                        st.session_state.coded_df = df
+                    # 3. 완료 버튼 - 텍스트 입력 후 활성화
+                    st.divider()
+                    st.markdown("<h4 style='color:grey;'>코딩 작업 종료하기</h4>", unsafe_allow_html=True)
+                    if current_code and st.session_state.phrases_by_code[current_code]:
+                        if st.button("코딩 종료"):
+                            # Create a temporary lowercase column for matching
+                            df = st.session_state.df.copy()  # Use session_state to preserve df between runs
+                            df['lower_temp'] = df[selected_column].str.lower()
 
-                        with st.spinner("Loading..."):
-                            time.sleep(5)  # Simulate loading time
+                            # Process the text for each code
+                            for code, phrases in st.session_state.phrases_by_code.items():
+                                for phrase in phrases:
+                                    # Match against the lowercase temporary column
+                                    df['coding'] = df['coding'].where(~df['lower_temp'].str.contains(phrase.lower(), na=False), code)
 
-                        # Display coding result
-                        st.write("코딩이 완료되었습니다.")
-                        st.dataframe(st.session_state.coded_df, use_container_width=True)
+                            # Apply the appropriate fill method based on the radio selection
+                            if fill_option == "전부 0으로":
+                                df['coding'].fillna(0, inplace=True)
+                            elif fill_option == "전부 99로":
+                                df['coding'].fillna(99, inplace=True)
+                            elif fill_option == "전부 공백":
+                                df['coding'].fillna(np.nan, inplace=True)
 
-                    # 6. 데이터 다운로드 버튼 (Excel 또는 CSV)
-                    if st.session_state.coded_df is not None:
-                        st.divider()
-                        st.markdown("<h4 style='color:grey;'>데이터 다운로드</h4>", unsafe_allow_html=True)
-                        export_format = st.radio("파일 형식을 선택하세요", options=["CSV", "Excel"])
-                        if export_format == "CSV":
-                            csv = st.session_state.coded_df.to_csv(index=False).encode('utf-8')
-                            st.download_button(
-                                label="CSV 다운로드",
-                                data=csv,
-                                file_name="bc_table.csv",
-                                mime='text/csv'
-                            )
-                        elif export_format == "Excel":
-                            buffer = BytesIO()
-                            try:
-                                # Use ExcelWriter with openpyxl
-                                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                                    st.session_state.coded_df.to_excel(writer, index=False)
+                            # Drop the temporary column after coding
+                            df.drop(columns=['lower_temp'], inplace=True)
 
-                                # Move the buffer's position back to the start
-                                buffer.seek(0)
+                            # Store the coded DataFrame in session state
+                            st.session_state.coded_df = df
 
-                                # Offer the download button for Excel
+                            with st.spinner("Loading..."):
+                                time.sleep(5)  # Simulate loading time
+
+                            # Display coding result
+                            st.success("코딩이 완료되었습니다. 결과를 확인하세요.", icon="✅")
+                            st.dataframe(st.session_state.coded_df, use_container_width=True)
+
+                        # 6. 데이터 다운로드 버튼 (Excel 또는 CSV)
+                        if st.session_state.coded_df is not None:
+                            st.divider()
+                            st.markdown("<h4 style='color:grey;'>코딩 데이터 다운로드</h4>", unsafe_allow_html=True)
+                            export_format = st.radio("✔️ 파일 형식을 선택해주세요:", options=["CSV", "Excel"])
+                            if export_format == "CSV":
+                                csv = st.session_state.coded_df.to_csv(index=False).encode('utf-8')
                                 st.download_button(
-                                    label="Excel 다운로드",
-                                    data=buffer,
-                                    file_name="bc_table.xlsx",
-                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                    label="CSV 다운로드",
+                                    data=csv,
+                                    file_name="bc_table.csv",
+                                    mime='text/csv'
                                 )
-                            finally:
-                                buffer.close()
+                            elif export_format == "Excel":
+                                buffer = BytesIO()
+                                try:
+                                    # Use ExcelWriter with openpyxl
+                                    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                                        st.session_state.coded_df.to_excel(writer, index=False)
 
-            except ValueError as e:
-                st.error("적합하지 않는 데이터를 선택하였습니다. 다시 시도해주세요.")
+                                    # Move the buffer's position back to the start
+                                    buffer.seek(0)
+
+                                    # Offer the download button for Excel
+                                    st.download_button(
+                                        label="Excel 다운로드",
+                                        data=buffer,
+                                        file_name="bc_table.xlsx",
+                                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                    )
+                                finally:
+                                    buffer.close()
+
+            # except ValueError as e:
+            #     st.error("적합하지 않는 데이터를 선택하였습니다. 다시 시도해주세요.")
             except OSError as e:  # 파일 암호화 또는 해독 문제 처리
                 st.error("파일이 암호화된 것 같습니다. 파일의 암호를 푼 후 다시 시도해주세요.")
 
@@ -962,7 +1106,7 @@ if login():  # If logged in, show the rest of the app
 
         # 1. 파일 업로드
         st.markdown("<h4 style='color:grey;'>데이터 업로드</h4>", unsafe_allow_html=True)
-        uploaded_file = st.file_uploader("시각화에 이용하실 데이터 파일을 업로드해주세요.")
+        uploaded_file = st.file_uploader("📁 시각화에 이용하실 데이터 파일을 업로드해주세요:")
 
         if uploaded_file is not None:
             try:
@@ -980,7 +1124,8 @@ if login():  # If logged in, show the rest of the app
 
                         # 시트 선택 옵션에 "-- 선택 --" 추가
                         if len(sheet_names) > 1:
-                            sheet = st.selectbox('업로드하신 파일에 여러 시트가 존재합니다. 이용하실 시트를 선택해주세요.', ["-- 선택 --"] + sheet_names)
+                            st.write(" ")
+                            sheet = st.selectbox('✔️ 업로드하신 파일에 여러 시트가 존재합니다. 이용하실 시트를 선택해주세요:', ["-- 선택 --"] + sheet_names)
 
                             # "-- 선택 --"인 경우 동작 중단
                             if sheet == "-- 선택 --":
@@ -1000,7 +1145,7 @@ if login():  # If logged in, show the rest of the app
                     st.markdown("<h4 style='color:grey;'>데이터 미리보기</h4>", unsafe_allow_html=True)
 
                     # Add a radio button for the user to select the option
-                    selected_option = st.radio("옵션을 선택하세요:", ["데이터", "결측수", "요약통계"], key="📈 시각화")
+                    selected_option = st.radio("✔️ 옵션을 선택해주세요:", ["데이터", "결측수", "요약통계"], key="📈 시각화")
 
                     # Show the corresponding output based on the user's selection
                     if selected_option == "데이터":
@@ -1065,7 +1210,7 @@ if login():  # If logged in, show the rest of the app
 
                     st.text("")
                     st.text("")
-                    plot_type = st.radio("그래프 선택", ('범주형 변수 : Barplot', '범주형 변수 : Pie chart', '연속형 변수 : Histogram', '연속형 변수 : Boxplot'))
+                    plot_type = st.radio("✔️ 그래프를 선택해주세요:", ('범주형 변수 : Barplot', '범주형 변수 : Pie chart', '연속형 변수 : Histogram', '연속형 변수 : Boxplot'))
                     st.text("")
 
                     # Creating visualizations using Plotlyif plot_type == '범주형 변수 : Barplot':
@@ -1077,7 +1222,7 @@ if login():  # If logged in, show the rest of the app
                             columns = df.columns.tolist()
                             columns.insert(0, "-- 선택 --")
 
-                            selected_column = st.selectbox("열 선택", columns)
+                            selected_column = st.selectbox("✔️ 열을 선택해주세요:", columns)
                             if selected_column != "-- 선택 --":
                                 if df[selected_column].dtype != 'category':
                                     df[selected_column] = df[selected_column].astype('category')
@@ -1097,7 +1242,7 @@ if login():  # If logged in, show the rest of the app
                             columns = df.columns.tolist()
                             columns.insert(0, "-- 선택 --")
 
-                            selected_column = st.selectbox("열 선택", columns)
+                            selected_column = st.selectbox("✔️ 열을 선택해주세요:", columns)
                             if selected_column != "-- 선택 --":
                                 if df[selected_column].dtype != 'category':
                                     df[selected_column] = df[selected_column].astype('category')
@@ -1121,7 +1266,7 @@ if login():  # If logged in, show the rest of the app
                             columns = df.columns.tolist()
                             columns.insert(0, "-- 선택 --")
 
-                            selected_column = st.selectbox("열 선택", columns)
+                            selected_column = st.selectbox("✔️ 열을 선택해주세요:", columns)
                             if selected_column != "-- 선택 --":
                                 if df[selected_column].dtype in ['int64', 'float64']:
                                     fig = ff.create_distplot([df[selected_column].dropna()], [selected_column], bin_size=0.1)
@@ -1135,7 +1280,7 @@ if login():  # If logged in, show the rest of the app
                             columns = df.columns.tolist()
                             columns.insert(0, "-- 선택 --")
 
-                            selected_column = st.selectbox("열 선택", columns)
+                            selected_column = st.selectbox("✔️ 열을 선택해주세요:", columns)
                             if selected_column != "-- 선택 --":
                                 if df[selected_column].dtype in ['int64', 'float64']:
                                     fig = px.box(df, x=selected_column, color_discrete_sequence=["#BBDDEE"])  # Specify color
@@ -1179,7 +1324,7 @@ if login():  # If logged in, show the rest of the app
 
                     st.text("")
                     st.text("")
-                    plot_type = st.radio("그래프 선택", ('범주형 변수 : Barplot', '범주형 변수 : Pie chart', '연속형 변수 : Histogram', '연속형 변수 : Boxplot', '연속형 변수: Correlation Heatmap'))
+                    plot_type = st.radio("✔️ 그래프를 선택해주세요:", ('범주형 변수 : Barplot', '범주형 변수 : Pie chart', '연속형 변수 : Histogram', '연속형 변수 : Boxplot', '연속형 변수: Correlation Heatmap'))
                     st.text("")
 
                     # Creating visualizations using Plotlyif plot_type == '범주형 변수 : Barplot':
@@ -1190,8 +1335,8 @@ if login():  # If logged in, show the rest of the app
                             # Convert to categorical data if necessary
                             columns = df.columns.tolist()
                             columns.insert(0, "-- 선택 --")
-                            selected_column_1 = st.selectbox("열 선택", columns, key='categorical_variable')
-                            selected_column_2 = st.selectbox("그룹열 선택", columns, key='group_variable')
+                            selected_column_1 = st.selectbox("✔️ 열을 선택해주세요:", columns, key='categorical_variable')
+                            selected_column_2 = st.selectbox("✔️ 그룹열을 선택해주세요:", columns, key='group_variable')
 
                             if selected_column_1 != "-- 선택 --":
                                 if df[selected_column_1].dtype != 'category':
@@ -1226,8 +1371,8 @@ if login():  # If logged in, show the rest of the app
                             # Convert to categorical data if necessary
                             columns = df.columns.tolist()
                             columns.insert(0, "-- 선택 --")
-                            selected_column_1 = st.selectbox("열 선택", columns, key='categorical_variable')
-                            selected_column_2 = st.selectbox("그룹열 선택", columns, key='group_variable')
+                            selected_column_1 = st.selectbox("✔️ 열을 선택해주세요:", columns, key='categorical_variable')
+                            selected_column_2 = st.selectbox("✔️ 그룹열을 선택해주세요:", columns, key='group_variable')
 
                             if selected_column_1 != "-- 선택 --" and selected_column_2 != "-- 선택 --":
                                 # Data preparation: Group by selected_column_2 and count selected_column_1
@@ -1257,8 +1402,8 @@ if login():  # If logged in, show the rest of the app
                             # Check if the selected column is continuous
                             columns = df.columns.tolist()
                             columns.insert(0, "-- 선택 --")
-                            selected_column_1 = st.selectbox("열 선택", columns, key='continuous_variable')
-                            selected_column_2 = st.selectbox("그룹열 선택", columns, key='group_variable')
+                            selected_column_1 = st.selectbox("✔️ 열을 선택해주세요:", columns, key='continuous_variable')
+                            selected_column_2 = st.selectbox("✔️ 그룹열을 선택해주세요:", columns, key='group_variable')
 
                             if selected_column_1 != "-- 선택 --" and selected_column_2 != "-- 선택 --":
                                 # Check if selected_column_1 is continuous
@@ -1284,14 +1429,14 @@ if login():  # If logged in, show the rest of the app
                                     # Display the plot
                                     st.plotly_chart(fig)
                                 else:
-                                    st.warning("Histogram은 연속형 변수에 적합합니다. 다른 열을 선택해주세요.")
+                                    st.warning("Histogram은 연속형 변수에 적합합니다. 다른 열을 선택해주세요:")
 
                         elif plot_type == '연속형 변수 : Boxplot':
                             # Check if the selected column is continuous
                             columns = df.columns.tolist()
                             columns.insert(0, "-- 선택 --")
-                            selected_column_1 = st.selectbox("열 선택", columns, key='continuous_variable')
-                            selected_column_2 = st.selectbox("그룹열 선택", columns, key='group_variable')
+                            selected_column_1 = st.selectbox("✔️ 열을 선택해주세요:", columns, key='continuous_variable')
+                            selected_column_2 = st.selectbox("✔️ 그룹열을 선택해주세요:", columns, key='group_variable')
 
                             if selected_column_1 != "-- 선택 --" and selected_column_2 != "-- 선택 --":
                                 # Check if selected_column_1 is continuous
@@ -1320,7 +1465,7 @@ if login():  # If logged in, show the rest of the app
                                     # Display the plot
                                     st.plotly_chart(fig)
                                 else:
-                                    st.warning("Boxplot은 연속형 변수에 적합합니다. 다른 열을 선택해주세요.")
+                                    st.warning("Boxplot은 연속형 변수에 적합합니다. 다른 열을 선택해주세요:")
 
                         elif plot_type == '연속형 변수: Correlation Heatmap':
                             # Select numerical columns for correlation
@@ -1336,18 +1481,18 @@ if login():  # If logged in, show the rest of the app
                                 st.warning("히트맵을 구현할 연속형 변수가 충분하지 않습니다.")
 
                         else:
-                            st.write("먼저 시각화 유형을 선택해주세요.")
+                            st.write("먼저 시각화 유형을 선택해주세요:")
 
-            except ValueError as e:
-                st.error("적합하지 않는 데이터를 선택하였습니다. 다시 시도해주세요.")
+            # except ValueError as e:
+            #     st.error("적합하지 않는 데이터를 선택하였습니다. 다시 시도해주세요.")
             except OSError as e:  # 파일 암호화 또는 해독 문제 처리
                 st.error("파일이 암호화된 것 같습니다. 파일의 암호를 푼 후 다시 시도해주세요.")
 
-    elif page == "📊 특성표 산출":
+    elif page == "📊 특성표 생성":
         st.markdown(
         """
         <div style="background-color: #e9f5ff; padding: 10px; border-radius: 10px;">
-            <h2 style="color: #000000;">📊 특성표 산출</h2>
+            <h2 style="color: #000000;">📊 특성표 생성</h2>
             <p style="font-size:18px; color: #000000;">
             &nbsp;&nbsp;&nbsp;&nbsp;원하시는 데이터를 업로드하신 후 자유롭게 분석하세요.
             </p>
@@ -1360,7 +1505,7 @@ if login():  # If logged in, show the rest of the app
 
         # 1. 파일 업로드
         st.markdown("<h4 style='color:grey;'>데이터 업로드</h4>", unsafe_allow_html=True)
-        uploaded_file = st.file_uploader("특성표 산출에 이용하실 데이터 파일을 업로드해주세요.")
+        uploaded_file = st.file_uploader("📁 특성표 생성에 이용하실 데이터 파일을 업로드해주세요:")
         st.warning("업로드 시, 날짜형 타입의 열은 자동으로 인식하여 제외됩니다.", icon="🚨")
 
         if uploaded_file is not None:
@@ -1379,7 +1524,8 @@ if login():  # If logged in, show the rest of the app
 
                         # 시트 선택 옵션에 "-- 선택 --" 추가
                         if len(sheet_names) > 1:
-                            sheet = st.selectbox('업로드하신 파일에 여러 시트가 존재합니다. 이용하실 시트를 선택해주세요.', ["-- 선택 --"] + sheet_names)
+                            st.write(" ")
+                            sheet = st.selectbox('✔️ 업로드하신 파일에 여러 시트가 존재합니다. 이용하실 시트를 선택해주세요:', ["-- 선택 --"] + sheet_names)
 
                             # "-- 선택 --"인 경우 동작 중단
                             if sheet == "-- 선택 --":
@@ -1399,7 +1545,7 @@ if login():  # If logged in, show the rest of the app
                     st.markdown("<h4 style='color:grey;'>데이터 미리보기</h4>", unsafe_allow_html=True)
 
                     # Add a radio button for the user to select the option
-                    selected_option = st.radio("옵션을 선택하세요:", ["데이터", "결측수", "요약통계"], key="📊 특성표 산출")
+                    selected_option = st.radio("✔️ 옵션을 선택해주세요:", ["데이터", "결측수", "요약통계"], key="📊 특성표 생성")
 
                     # Show the corresponding output based on the user's selection
                     if selected_option == "데이터":
@@ -1761,12 +1907,11 @@ if login():  # If logged in, show the rest of the app
                     st.dataframe(count[['Variable', 'Count']], use_container_width=True)
 
                     st.divider()
-                    st.markdown("<h4 style='color:grey;'>특성표 생성</h4>", unsafe_allow_html=True)
                     st.header("📊 특성표 생성", divider="rainbow")
 
                     # Let the user select whether the dependent variable has 2 or 3 categories
                     category_choice = st.radio(
-                        "종속변수가 몇 개의 범주를 가지는지 선택해주세요.",
+                        "✔️ 종속변수가 몇 개의 범주를 가지는지 선택해주세요:",
                         options=["2 범주", "3 범주"]
                     )
                     st.write()
@@ -1803,7 +1948,7 @@ if login():  # If logged in, show the rest of the app
                         st.write(" ")
 
                         response_col = st.selectbox(
-                            "통계적 유의성을 볼 종속변수를 선택해주세요.",
+                            "✔️ 통계적 유의성을 볼 종속변수를 선택해주세요:",
                             options=["-- 선택 --"] + [col for col in df.columns if df[col].nunique() == 2],
                             index=0
                         )
@@ -1818,8 +1963,8 @@ if login():  # If logged in, show the rest of the app
                             st.dataframe(merged, use_container_width=True)
 
                             st.divider()
-                            st.markdown("<h4 style='color:grey;'>데이터 다운로드</h4>", unsafe_allow_html=True)
-                            export_format = st.radio("파일 형식을 선택하세요", options=["CSV", "Excel"])
+                            st.markdown("<h4 style='color:grey;'>특성표 다운로드</h4>", unsafe_allow_html=True)
+                            export_format = st.radio("✔️ 파일 형식을 선택해주세요:", options=["CSV", "Excel"])
                             if export_format == "CSV":
                                 csv = merged.to_csv(index=False).encode('utf-8')
                                 st.download_button(
@@ -1882,7 +2027,7 @@ if login():  # If logged in, show the rest of the app
                         st.write(" ")
 
                         response_col = st.selectbox(
-                            "통계적 유의성을 볼 종속변수를 선택해주세요.",
+                            "✔️ 통계적 유의성을 볼 종속변수를 선택해주세요:",
                             options=["-- 선택 --"] + [col for col in df.columns if df[col].nunique() == 3],
                             index=0
                         )
@@ -1898,7 +2043,7 @@ if login():  # If logged in, show the rest of the app
 
                             st.divider()
                             st.markdown("<h4 style='color:grey;'>특성표 다운로드</h4>", unsafe_allow_html=True)
-                            export_format = st.radio("파일 형식을 선택하세요", options=["CSV", "Excel"])
+                            export_format = st.radio("✔️ 파일 형식을 선택해주세요:", options=["CSV", "Excel"])
                             if export_format == "CSV":
                                 csv = merged.to_csv(index=False).encode('utf-8')
                                 st.download_button(
@@ -1928,17 +2073,17 @@ if login():  # If logged in, show the rest of the app
                                     buffer.close()
                         else:
                             st.write("")
-            except ValueError as e:
-                st.error(e)
-                st.error("적합하지 않는 데이터를 선택하였습니다. 다시 시도해주세요.")
+            # except ValueError as e:
+            #     st.error(e)
+            #     st.error("적합하지 않는 데이터를 선택하였습니다. 다시 시도해주세요.")
             except OSError as e:  # 파일 암호화 또는 해독 문제 처리
                 st.error("파일이 암호화된 것 같습니다. 파일의 암호를 푼 후 다시 시도해주세요.")
 
-    elif page == "🔃 인과관계 추론":
+    elif page == "♻️ 인과관계 추론":
         st.markdown(
         """
         <div style="background-color: #e9f5ff; padding: 10px; border-radius: 10px;">
-            <h2 style="color: #000000;">🔃 인과관계 추론</h2>
+            <h2 style="color: #000000;">♻️ 인과관계 추론</h2>
             <p style="font-size:18px; color: #000000;">
             &nbsp;&nbsp;&nbsp;&nbsp;분석 전 데이터 인과관계를 파악해보세요.
             </p>
@@ -1955,7 +2100,7 @@ if login():  # If logged in, show the rest of the app
 
         # 1. 파일 업로드
         st.markdown("<h4 style='color:grey;'>데이터 업로드</h4>", unsafe_allow_html=True)
-        uploaded_file = st.file_uploader("인과관계를 볼 데이터 파일을 업로드하세요.", type=["csv", "xlsx"])
+        uploaded_file = st.file_uploader("📁 인과관계를 볼 데이터 파일을 업로드해주세요:", type=["csv", "xlsx"])
 
         if uploaded_file is not None:
             # 파일이 새로 업로드되었을 때 세션 상태 초기화
@@ -1981,7 +2126,8 @@ if login():  # If logged in, show the rest of the app
 
                         # 시트 선택 옵션에 "-- 선택 --" 추가
                         if len(sheet_names) > 1:
-                            sheet = st.selectbox('업로드하신 파일에 여러 시트가 존재합니다. 이용하실 시트를 선택해주세요.', ["-- 선택 --"] + sheet_names)
+                            st.write(" ")
+                            sheet = st.selectbox('✔️ 업로드하신 파일에 여러 시트가 존재합니다. 이용하실 시트를 선택해주세요:', ["-- 선택 --"] + sheet_names)
 
                             # "-- 선택 --"인 경우 동작 중단
                             if sheet == "-- 선택 --":
@@ -2002,7 +2148,7 @@ if login():  # If logged in, show the rest of the app
                     st.markdown("<h4 style='color:grey;'>데이터 미리보기</h4>", unsafe_allow_html=True)
 
                     # Add a radio button for the user to select the option
-                    selected_option = st.radio("옵션을 선택하세요:", ["데이터", "결측수", "요약통계"], key="🔃 인과관계 추론")
+                    selected_option = st.radio("✔️ 옵션을 선택해주세요:", ["데이터", "결측수", "요약통계"], key="♻️ 인과관계 추론")
 
                     # Show the corresponding output based on the user's selection
                     if selected_option == "데이터":
@@ -2038,7 +2184,7 @@ if login():  # If logged in, show the rest of the app
                     # 판독문 열 선택창
                     st.divider()
                     st.markdown("<h4 style='color:grey;'>변수 선택</h4>", unsafe_allow_html=True)
-                    st.write("인과관계를 볼 변수 열을 선택하세요.")
+                    st.write("▶️ 인과관계를 볼 변수 열 선택")
 
                     # 선택된 열을 기반으로 작업
                     st.session_state.df = df  # Ensure df is stored initially
@@ -2050,14 +2196,14 @@ if login():  # If logged in, show the rest of the app
 
                     # Separate selections for continuous and categorical variables
                     continuous_columns = st.multiselect(
-                        "- 연속형 변수를 선택해주세요.",
+                        "✔️ 연속형 변수를 선택해주세요:",
                         df.select_dtypes(include=['float64', 'int64']).columns,
                         key="continuous_columns_selection"
                     )
 
                     # 범주형 변수 선택
                     categorical_columns = st.multiselect(
-                        "- 범주형 변수를 선택해주세요.",
+                        "✔️ 범주형 변수를 선택해주세요:",
                         get_categorical_columns(df),
                         key="categorical_columns_selection"
                     )
@@ -2070,30 +2216,14 @@ if login():  # If logged in, show the rest of the app
                             st.session_state.continuous_columns = continuous_columns
                             st.session_state.categorical_columns = categorical_columns
                             st.session_state.proceed_to_preprocessing = True
-                            st.success("변수 선택이 완료되었습니다. 다음 단계로 진행하세요.")
+                            st.success("변수 선택이 완료되었습니다. 다음 단계로 진행하세요.", icon="✅")
                         else:
-                            st.warning("변수를 두 개 이상 선택해주세요.", icon="⚠️")
+                            st.warning("변수를 두 개 이상 선택하셔야 합니다.", icon="⚠️")
 
                     # 2. 전처리 단계
                     if st.session_state.get("proceed_to_preprocessing", False):
                         st.divider()
                         st.markdown("<h4 style='color:grey;'>결측 파악</h4>", unsafe_allow_html=True)
-
-                        # 연속형 변수 결측값 파악
-                        for X_column in st.session_state.continuous_columns:
-                            X_missing_count = df[X_column].isna().sum()
-                            st.markdown(
-                                f"<p style='font-size:16px; color:firebrick;'><strong>선택된 연속형 설명변수 '{X_column}'에 결측이 {X_missing_count}개 존재합니다.</strong></p>",
-                                unsafe_allow_html=True
-                            )
-
-                        # 범주형 변수 결측값 파악
-                        for X_column in st.session_state.categorical_columns:
-                            X_missing_count = df[X_column].isna().sum()
-                            st.markdown(
-                                f"<p style='font-size:16px; color:firebrick;'><strong>선택된 범주형 설명변수 '{X_column}'에 결측이 {X_missing_count}개 존재합니다.</strong></p>",
-                                unsafe_allow_html=True
-                            )
 
                         # 데이터 분리
                         X_continuous = df[st.session_state.continuous_columns]
@@ -2105,33 +2235,85 @@ if login():  # If logged in, show the rest of the app
 
                         # Initialize session states
                         if "causal_inference_ready" not in st.session_state:
-                            st.session_state.causal_inference_ready = False  # 관계 추론 준비 상태
+                            st.session_state.causal_inference_ready = False
                         if "causal_inference_triggered" not in st.session_state:
-                            st.session_state.causal_inference_triggered = False  # 관계 추론 수행 상태
+                            st.session_state.causal_inference_triggered = False
                         if "random_seed" not in st.session_state:
-                            st.session_state.random_seed = 111  # 기본 시드 값
+                            st.session_state.random_seed = 111
+                        if "causal_graph_rendered" not in st.session_state:
+                            st.session_state.causal_graph_rendered = False
 
-                        # Check if missing values need to be handled
+                        # 결측값 처리 필요 여부 확인
                         if not continuous_missing and not categorical_missing:
-                            st.success("결측 처리 작업 없이 분석이 가능합니다.")  # No missing values detected
+                            st.success("결측 처리 작업 없이 분석이 가능합니다.", icon="✅")
                             st.session_state.causal_inference_ready = True  # 바로 관계 추론 가능
                         else:
-                            st.warning("결측값 처리가 필요합니다.")  # Missing values detected
-                            st.markdown("<h4 style='color:grey;'>결측 처리</h4>", unsafe_allow_html=True)
+                            # 결측 처리 로직
+                            continuous_missing_value_strategies = {}
+                            categorical_missing_value_strategies = {}
 
-                            # 결측값 처리 전략 선택 (생략 - 이미 처리된 코드로 가정)
+                            # 연속형 변수 결측 처리 선택
+                            for column in st.session_state.continuous_columns:
+                                missing_count = df[column].isna().sum()
+                                if missing_count > 0:
+                                    st.error(f"선택하신 연속형 변수 '{column}'에 결측치 {missing_count}개가 있습니다.", icon="⛔")
+                                    strategy = st.selectbox(
+                                        f"✔️ '{column}'의 결측 처리 방법을 선택해주세요:",
+                                        ['-- 선택 --', '결측이 존재하는 행을 제거', '해당 열의 평균값으로 대체', '해당 열의 중앙값으로 대체', '해당 열의 최빈값으로 대체'],
+                                        key=f"continuous_{column}_strategy"
+                                    )
+                                    if strategy != '-- 선택 --':
+                                        continuous_missing_value_strategies[column] = strategy
 
-                        # Perform causal inference button
-                        if st.session_state.causal_inference_ready and not st.session_state.causal_inference_triggered:
-                            if st.button("관계 추론", key="causal_inference_button"):
-                                st.session_state.causal_inference_triggered = True  # 관계 추론 수행 상태로 변경
-                                st.divider()
-                                st.header("🔃 인과관계 추론", divider="rainbow")
+                            # 범주형 변수 결측 처리 선택
+                            for column in st.session_state.categorical_columns:
+                                missing_count = df[column].isna().sum()
+                                if missing_count > 0:
+                                    st.error(f"선택하신 범주형 변수 '{column}'에 결측치 {missing_count}개가 있습니다.", icon="⛔")
+                                    strategy = st.selectbox(
+                                        f"✔️ '{column}'의 결측 처리 방법을 선택해주세요:",
+                                        ['-- 선택 --', '결측이 존재하는 행을 제거', '해당 열의 최빈값으로 대체'],
+                                        key=f"categorical_{column}_strategy"
+                                    )
+                                    if strategy != '-- 선택 --':
+                                        categorical_missing_value_strategies[column] = strategy
 
-                        # If causal inference has been triggered, perform graph visualization
-                        if st.session_state.causal_inference_triggered:
+                            # 결측 처리 버튼
+                            if st.button("결측 처리"):
+                                for column, strategy in continuous_missing_value_strategies.items():
+                                    if strategy == '결측이 존재하는 행을 제거':
+                                        X_continuous = X_continuous.dropna(subset=[column])
+                                    else:
+                                        impute_strategy = {
+                                            '해당 열의 평균값으로 대체': 'mean',
+                                            '해당 열의 중앙값으로 대체': 'median',
+                                            '해당 열의 최빈값으로 대체': 'most_frequent'
+                                        }[strategy]
+                                        imputer = SimpleImputer(strategy=impute_strategy)
+                                        X_continuous[[column]] = imputer.fit_transform(X_continuous[[column]])
+
+                                for column, strategy in categorical_missing_value_strategies.items():
+                                    if strategy == '결측이 존재하는 행을 제거':
+                                        X_categorical = X_categorical.dropna(subset=[column])
+                                    elif strategy == '해당 열의 최빈값으로 대체':
+                                        imputer = SimpleImputer(strategy='most_frequent')
+                                        X_categorical[[column]] = imputer.fit_transform(X_categorical[[column]])
+
+                                # 인덱스 동기화
+                                shared_indexes = X_continuous.index.intersection(X_categorical.index)
+                                X_continuous = X_continuous.loc[shared_indexes]
+                                X_categorical = X_categorical.loc[shared_indexes]
+
+                                # Ensure continuous columns are numeric
+                                X_continuous = X_continuous.apply(pd.to_numeric, errors='coerce')
+
+                                st.success("결측값 처리가 완료되었습니다. 분석을 진행하세요.", icon="✅")
+                                st.session_state.causal_inference_ready = True
+
+                        ## Causal inference and graph rendering
+                        if st.session_state.get("causal_inference_ready", False):
                             st.divider()
-                            st.header("🔃 인과관계 추론", divider="rainbow")
+                            st.header("♻️ 인과관계 추론", divider="rainbow")
 
                             # 데이터 결합
                             if not X_continuous.empty or not X_categorical.empty:
@@ -2146,8 +2328,23 @@ if login():  # If logged in, show the rest of the app
                             )
                             X_transformed = preprocessor.fit_transform(X)
 
+                            # Transformed column names (to align with X_transformed)
+                            transformed_columns = (
+                                list(X_continuous.columns) +  # Keep continuous column names
+                                list(preprocessor.named_transformers_['cat'].get_feature_names_out(X_categorical.columns))  # Extract new column names for categorical variables
+                            )
+
+                            # Streamlit 컨테이너를 생성하여 그래프를 출력
+                            causal_graph_container = st.container()
+
                             # PC 알고리즘 실행
                             cg = pc(X_transformed, alpha=0.05)
+
+                            # Check if graph size matches transformed column names
+                            if len(transformed_columns) != len(cg.G.graph):
+                                raise ValueError(
+                                    f"Mismatch between graph nodes ({len(cg.G.graph)}) and transformed columns ({len(transformed_columns)})."
+                                )
 
                             # 방향성 있는 인과관계만 추출
                             def extract_directed_edges(causal_graph, column_names):
@@ -2160,14 +2357,14 @@ if login():  # If logged in, show the rest of the app
                                             edges.append((column_names[j], column_names[i]))
                                 return edges
 
-                            column_names = X.columns
-                            edges = extract_directed_edges(cg.G.graph, column_names)
+                            # Extract directed edges using transformed column names
+                            edges = extract_directed_edges(cg.G.graph, transformed_columns)
 
                             # Create the causal graph
                             causal_graph = nx.DiGraph()
                             causal_graph.add_edges_from(edges)
 
-                            # 그래프 시각화
+                            # 그래프 시각화 함수
                             def visualize_graph(graph, seed=None, padding_ratio=0.1, node_separation=1.5):
                                 pos = nx.spring_layout(graph, seed=seed, k=node_separation, iterations=100)
 
@@ -2239,7 +2436,7 @@ if login():  # If logged in, show the rest of the app
                                 fig.update_layout(
                                     height=800,
                                     showlegend=False,
-                                    title_text="인과 그래프",  # Causal Graph
+                                    title_text="Causal Graph",
                                     title_font=dict(family="Times New Roman", size=20, color="black"),
                                     margin=dict(l=50, r=50, t=50, b=50),
                                     xaxis=dict(showgrid=False, zeroline=False),
@@ -2247,57 +2444,186 @@ if login():  # If logged in, show the rest of the app
                                     annotations=annotations
                                 )
 
-                                st.plotly_chart(fig)
+                                return fig
 
-                            # 그래프 시각화 호출
-                            visualize_graph(causal_graph, seed=st.session_state.random_seed)
+                            # Graph rendering
+                            regenerate_layout_clicked = st.button("Figure 생성", key="regenerate_causal_layout_button")
 
-                            # 레이아웃 재생성 버튼
-                            if st.button("레이아웃 재생성", key="regenerate_layout_button"):
-                                st.session_state.random_seed = np.random.randint(0, 9999)  # Randomize the seed
-                                st.success(f"새 레이아웃으로 생성 완료")
-                                visualize_graph(causal_graph, seed=st.session_state.random_seed)
+                            if regenerate_layout_clicked or not st.session_state.causal_graph_rendered:
+                                if regenerate_layout_clicked:
+                                    st.session_state.random_seed = np.random.randint(0, 9999)
 
-                                # hc = HillClimbSearch(X)
-                                # model = hc.estimate(scoring_method=BicScore(X))  # Bayesian Information Criterion (BIC)
+                                fig = visualize_graph(causal_graph, seed=st.session_state.random_seed)  # Pass `causal_graph` explicitly
+                                st.plotly_chart(fig, use_container_width=True, key=f"plotly_chart_causal_{st.session_state.random_seed}")
+                                st.session_state.causal_graph_rendered = True
 
-                                # # Display learned edges
-                                # st.write("Learned Causal Edges:", model.edges())
+                            # Header for causal inference
+                        if st.session_state.get("causal_inference_ready", False):
+                            st.divider()
+                            st.header("♻️ 인과관계 추론 with Simple Rule", divider="rainbow")
 
-                                # # Step 5: Create the causal graph
-                                # causal_graph = nx.DiGraph(model.edges)
+                        # Graph visualization container
+                        simple_rule_graph_container = st.container()
 
-                                # # Step 6: Visualize the graph using matplotlib
-                                # plt.figure(figsize=(10, 8))
-                                # plt.rc('font', family='Times New Roman')  # Set font globally
-                                # pos = nx.spring_layout(causal_graph, seed=42)  # Generate positions for nodes
-                                # nx.draw(
-                                #     causal_graph, pos, with_labels=True,
-                                #     node_size=3000,  # Node size
-                                #     node_color="lightblue",  # Node color
-                                #     font_size=12,  # Node label font size
-                                #     font_color="darkblue",  # Node label color
-                                #     edge_color="gray",  # Edge color
-                                #     arrowsize=20,  # Arrow size
-                                #     width=2  # Edge thickness
-                                # )
+                        # Initialize random seed
+                        if "random_seed" not in st.session_state:
+                            st.session_state.random_seed = 111
 
-                                # # Add edge labels
-                                # edge_labels = {(edge[0], edge[1]): f"{edge[0]}→{edge[1]}" for edge in causal_graph.edges}
-                                # nx.draw_networkx_edge_labels(causal_graph, pos, edge_labels=edge_labels, font_size=10)
+                        # Function to extract directed edges with exclusions
+                        def extract_directed_edges_with_exclusions(causal_graph, column_names, exclusions):
+                            edges = []
+                            num_nodes = len(causal_graph)
 
-                                # # Add a title
-                                # plt.title("Causal Graph Discovered from X", fontsize=18, color="darkblue", pad=20)
+                            # Ensure graph and column_names align
+                            if num_nodes != len(column_names):
+                                raise ValueError(
+                                    f"Mismatch between graph nodes ({num_nodes}) and column names ({len(column_names)})."
+                                )
 
-                                # # Step 7: Display the graph in Streamlit
-                                # st.pyplot(plt)
+                            for i in range(num_nodes):
+                                for j in range(num_nodes):
+                                    if causal_graph[i, j] == 1 and causal_graph[j, i] != 1:  # Only i → j
+                                        edge = (column_names[i], column_names[j])
+                                        if edge not in exclusions:
+                                            edges.append(edge)
+                                    elif causal_graph[i, j] == -1 and causal_graph[j, i] != -1:  # Only j → i
+                                        edge = (column_names[j], column_names[i])
+                                        if edge not in exclusions:
+                                            edges.append(edge)
+                            return edges
 
+                        # Run PC algorithm
+                        cg = pc(X_transformed, alpha=0.05)
 
-            except ValueError as e:
-                st.error("적합하지 않는 데이터를 선택하였습니다. 다시 시도해주세요.")
+                        # Track transformed column names
+                        transformed_columns = (
+                            list(X_continuous.columns) +  # Continuous variables
+                            list(preprocessor.named_transformers_['cat'].get_feature_names_out(X_categorical.columns))  # Categorical variables
+                        )
+
+                        # Validate graph size against column names
+                        if len(transformed_columns) != len(cg.G.graph):
+                            raise ValueError(
+                                f"Mismatch between the number of graph nodes ({len(cg.G.graph)}) and transformed columns ({len(transformed_columns)})."
+                            )
+
+                        # Simple Rule-based graph rendering
+                        with simple_rule_graph_container:
+                            st.markdown("#### 🔔 Simple Rule 설정")
+                            st.info("Simple Rule을 설정하여 특정 관계를 제외할 수 있습니다. (예: Age → Sex 또는 Sex → Age)")
+
+                            # Simple Rule setup
+                            available_columns = transformed_columns
+                            exclude_edges = st.multiselect(
+                                "✔️ 인과관계에서 제외할 관계를 선택해주세요:",
+                                options=[f"{col1} → {col2}" for col1 in available_columns for col2 in available_columns if col1 != col2],
+                                default=[]
+                            )
+                            excluded_edges = [(edge.split(" → ")[0], edge.split(" → ")[1]) for edge in exclude_edges]
+
+                            # Extract filtered edges based on exclusions
+                            filtered_edges = extract_directed_edges_with_exclusions(cg.G.graph, available_columns, excluded_edges)
+                            filtered_causal_graph = nx.DiGraph()
+                            filtered_causal_graph.add_edges_from(filtered_edges)
+
+                            # Visualization function
+                            def visualize_graph(graph, seed=None, padding_ratio=0.1, node_separation=1.5):
+                                pos = nx.spring_layout(graph, seed=seed, k=node_separation, iterations=100)
+
+                                edge_x = []
+                                edge_y = []
+                                annotations = []
+
+                                for edge in graph.edges():
+                                    x0, y0 = pos[edge[0]]
+                                    x1, y1 = pos[edge[1]]
+                                    dx, dy = x1 - x0, y1 - y0
+                                    dist = (dx**2 + dy**2)**0.5
+
+                                    # Apply padding
+                                    x0_padded = x0 + dx * padding_ratio / dist
+                                    y0_padded = y0 + dy * padding_ratio / dist
+                                    x1_padded = x1 - dx * padding_ratio / dist
+                                    y1_padded = y1 - dy * padding_ratio / dist
+
+                                    edge_x.extend([x0_padded, x1_padded, None])
+                                    edge_y.extend([y0_padded, y1_padded, None])
+
+                                    annotations.append(
+                                        dict(
+                                            ax=x0_padded, ay=y0_padded,
+                                            x=x1_padded, y=y1_padded,
+                                            xref="x", yref="y",
+                                            axref="x", ayref="y",
+                                            showarrow=True,
+                                            arrowhead=3,
+                                            arrowsize=1.5,
+                                            arrowwidth=1.5,
+                                            arrowcolor="gray"
+                                        )
+                                    )
+
+                                node_x = []
+                                node_y = []
+                                node_text = []
+                                for node in graph.nodes():
+                                    x, y = pos[node]
+                                    node_x.append(x)
+                                    node_y.append(y)
+                                    node_text.append(node)
+
+                                node_trace = go.Scatter(
+                                    x=node_x,
+                                    y=node_y,
+                                    mode='markers+text',
+                                    text=node_text,
+                                    textfont=dict(family='Times New Roman', size=12, color='black'),
+                                    marker=dict(
+                                        size=60,
+                                        color='lightblue',
+                                        line=dict(width=2, color='darkblue')
+                                    ),
+                                    hoverinfo='text'
+                                )
+
+                                edge_trace = go.Scatter(
+                                    x=edge_x,
+                                    y=edge_y,
+                                    line=dict(width=1.5, color='gray'),
+                                    hoverinfo='none',
+                                    mode='lines'
+                                )
+
+                                fig = go.Figure(data=[edge_trace, node_trace])
+                                fig.update_layout(
+                                    height=800,
+                                    showlegend=False,
+                                    title_text="Causal Graph (Filtered by Simple Rules)",
+                                    title_font=dict(family="Times New Roman", size=20, color="black"),
+                                    margin=dict(l=50, r=50, t=50, b=50),
+                                    xaxis=dict(showgrid=False, zeroline=False),
+                                    yaxis=dict(showgrid=False, zeroline=False),
+                                    annotations=annotations
+                                )
+
+                                return fig
+
+                            # Render the filtered causal graph
+                            regenerate_layout_clicked = st.button("Simple Rule Figure 생성", key="regenerate_simple_rule_layout_button")
+
+                            if regenerate_layout_clicked or "simple_rule_graph_rendered" not in st.session_state:
+                                st.session_state.random_seed = np.random.randint(0, 9999) if regenerate_layout_clicked else st.session_state.random_seed
+
+                                fig_simple_rule = visualize_graph(filtered_causal_graph, seed=st.session_state.random_seed)
+                                st.plotly_chart(fig_simple_rule, key=f"plotly_chart_simple_rule_{st.session_state.random_seed}")
+
+                                st.session_state["simple_rule_graph_rendered"] = True
+
+            # except ValueError as e:
+            #     st.error("적합하지 않는 데이터를 선택하였습니다. 다시 시도해주세요.")
             except OSError as e:  # 파일 암호화 또는 해독 문제 처리
                 st.error("파일이 암호화된 것 같습니다. 파일의 암호를 푼 후 다시 시도해주세요.")
-        
+
     elif page == "💻 로지스틱 회귀분석":
         st.markdown(
         """
@@ -2316,7 +2642,7 @@ if login():  # If logged in, show the rest of the app
         # 1. 파일 업로드
         st.markdown("<h4 style='color:grey;'>데이터 업로드</h4>", unsafe_allow_html=True)
         st.warning("로지스틱 회귀는 범주형 타입의 종속변수를 분석합니다.", icon="🚨")
-        uploaded_file = st.file_uploader("로지스틱 회귀분석에 이용하실 데이터 파일을 업로드해주세요.")
+        uploaded_file = st.file_uploader("📁 로지스틱 회귀분석에 이용하실 데이터 파일을 업로드해주세요:")
 
         if uploaded_file is not None:
             try:
@@ -2334,7 +2660,8 @@ if login():  # If logged in, show the rest of the app
 
                         # 시트 선택 옵션에 "-- 선택 --" 추가
                         if len(sheet_names) > 1:
-                            sheet = st.selectbox('업로드하신 파일에 여러 시트가 존재합니다. 이용하실 시트를 선택해주세요.', ["-- 선택 --"] + sheet_names)
+                            st.write(" ")
+                            sheet = st.selectbox('✔️ 업로드하신 파일에 여러 시트가 존재합니다. 이용하실 시트를 선택해주세요:', ["-- 선택 --"] + sheet_names)
 
                             # "-- 선택 --"인 경우 동작 중단
                             if sheet == "-- 선택 --":
@@ -2354,7 +2681,7 @@ if login():  # If logged in, show the rest of the app
                     st.markdown("<h4 style='color:grey;'>데이터 미리보기</h4>", unsafe_allow_html=True)
 
                     # Add a radio button for the user to select the option
-                    selected_option = st.radio("옵션을 선택하세요:", ["데이터", "결측수", "요약통계"], key="💻 로지스틱 회귀분석")
+                    selected_option = st.radio("✔️ 옵션을 선택해주세요:", ["데이터", "결측수", "요약통계"], key="💻 로지스틱 회귀분석")
 
                     # Show the corresponding output based on the user's selection
                     if selected_option == "데이터":
@@ -2427,7 +2754,7 @@ if login():  # If logged in, show the rest of the app
                         st.session_state.proceed_to_preprocessing = False
 
                     y_column = st.selectbox(
-                        "종속변수(y)를 선택해주세요.",
+                        "✔️ 종속변수(y)를 선택해주세요:",
                         options=["-- 선택 --"] + [col for col in df.columns if df[col].nunique() == 2],
                         index=0
                     )
@@ -2443,13 +2770,13 @@ if login():  # If logged in, show the rest of the app
 
                         # Separate selections for continuous and categorical variables
                         continuous_columns = st.multiselect(
-                            "- 연속형 설명변수(X)를 선택해주세요.",
+                            "✔️ 연속형 설명변수(X)를 선택해주세요:",
                             df.select_dtypes(include=['float64', 'int64']).columns,
                             key="continuous_columns_selection"
                         )
 
                         categorical_columns = st.multiselect(
-                            "- 범주형 설명변수(X)를 선택해주세요.",
+                            "✔️ 범주형 설명변수(X)를 선택해주세요:",
                             get_categorical_columns(df),
                             key="categorical_columns_selection"
                         )
@@ -2489,7 +2816,7 @@ if login():  # If logged in, show the rest of the app
                             }
                             </style>
                             <div class="custom-callout">
-                                <p>- 선택하신 종속변수(y)에 결측값이 존재한다면, 해당 행은 분석에서 제외됩니다.</p>
+                                <p>🔔 선택하신 종속변수에 결측값이 존재한다면, 해당 행은 분석에서 제외됩니다.</p>
                             </div>
                             """,
                             unsafe_allow_html=True
@@ -2498,25 +2825,24 @@ if login():  # If logged in, show the rest of the app
 
                             # Display missing value check for the dependent variable
                             y_missing_count = df[st.session_state.y_column].isna().sum()
-                            st.markdown(
-                                f"<p style='font-size:16px; color:red;'><strong>선택된 종속변수 '{st.session_state.y_column}'에 결측이 {y_missing_count}개 존재합니다.</strong></p>",
-                                unsafe_allow_html=True
-                            )
+                            st.info(f"선택된 종속변수 {st.session_state.y_column}'에 결측이 {y_missing_count}개 존재합니다.", icon="ℹ️")
 
                             # Check missing values for continuous and categorical variables separately
-                            for X_column in st.session_state.continuous_columns:
-                                X_missing_count = df[X_column].isna().sum()
-                                st.markdown(
-                                    f"<p style='font-size:16px; color:firebrick;'><strong>선택된 연속형 설명변수 '{X_column}'에 결측이 {X_missing_count}개 존재합니다.</strong></p>",
-                                    unsafe_allow_html=True
-                                )
+                            for column in st.session_state.continuous_columns:
+                                X_missing_count = df[column].isna().sum()
+                                if X_missing_count > 0:
+                                    st.markdown(
+                                        f"<p style='font-size:16px; color:firebrick;'><strong>선택된 연속형 설명변수 '{column}'에 결측치가 {X_missing_count}개 존재합니다.</strong></p>",
+                                        unsafe_allow_html=True
+                                    )
 
-                            for X_column in st.session_state.categorical_columns:
-                                X_missing_count = df[X_column].isna().sum()
-                                st.markdown(
-                                    f"<p style='font-size:16px; color:firebrick;'><strong>선택된 범주형 설명변수 '{X_column}'에 결측이 {X_missing_count}개 존재합니다.</strong></p>",
-                                    unsafe_allow_html=True
-                                )
+                            for column in st.session_state.categorical_columns:
+                                X_missing_count = df[column].isna().sum()
+                                if X_missing_count > 0:
+                                    st.markdown(
+                                        f"<p style='font-size:16px; color:firebrick;'><strong>선택된 범주형 설명변수 '{column}'에 결측치가 {X_missing_count}개 존재합니다.</strong></p>",
+                                        unsafe_allow_html=True
+                                    )
 
                             # Drop rows with missing values in the dependent variable (y)
                             df = df.dropna(subset=[st.session_state.y_column])
@@ -2527,15 +2853,11 @@ if login():  # If logged in, show the rest of the app
                             y = df[st.session_state.y_column]
 
                             if not X_continuous.isnull().any().any() and not X_categorical.isnull().any().any():
-                                st.markdown(
-                                    f"<p style='font-size:16px;'><strong>결측 처리 작업 없이 분석이 가능합니다.</strong></p>",
-                                    unsafe_allow_html=True
-                                )
-
+                                st.success("선택된 설명변수에 결측이 없습니다. 결측 처리 작업 없이 분석이 가능합니다.", icon="✅")
+                                st.session_state.causal_inference_ready = True
                             else:
-
                                 st.divider()
-                                st.markdown("<h4 style='color:grey;'>변수 전처리</h4>", unsafe_allow_html=True)
+                                st.markdown("<h4 style='color:grey;'>결측 처리</h4>", unsafe_allow_html=True)
 
                                 # Handling missing value strategies for continuous columns
                                 continuous_missing_value_strategies = {}
@@ -2543,7 +2865,7 @@ if login():  # If logged in, show the rest of the app
                                     if df[column].isnull().any():
                                         n = df[column].isna().sum()
                                         strategy = st.selectbox(
-                                            f"- ⚠️ 선택하신 연속형 설명변수 '{column}'에 {n}개의 결측이 있습니다. 처리 방법을 선택하세요:",
+                                            f"- ⛔ 선택하신 연속형 설명변수 '{column}'에 {n}개의 결측이 있습니다. 처리 방법을 선택해주세요:",
                                             ['-- 선택 --', '결측이 존재하는 행을 제거', '해당 열의 평균값으로 대체', '해당 열의 중앙값으로 대체', '해당 열의 최빈값으로 대체'],
                                             key=f"{column}_strategy"
                                         )
@@ -2556,7 +2878,7 @@ if login():  # If logged in, show the rest of the app
                                     if df[column].isnull().any():
                                         n = df[column].isna().sum()
                                         strategy = st.selectbox(
-                                            f"- ⚠️ 선택하신 범주형 설명변수 '{column}'에 {n}개의 결측이 있습니다. 처리 방법을 선택하세요:",
+                                            f"- ⛔ 선택하신 범주형 설명변수 '{column}'에 {n}개의 결측이 있습니다. 처리 방법을 선택해주세요:",
                                             ['-- 선택 --', '결측이 존재하는 행을 제거', '해당 열의 최빈값으로 대체'],
                                             key=f"{column}_strategy"
                                         )
@@ -2594,6 +2916,9 @@ if login():  # If logged in, show the rest of the app
                                 X_continuous = X_continuous.loc[shared_indexes]
                                 X_categorical = X_categorical.loc[shared_indexes]
                                 y = y.loc[shared_indexes]
+
+                                st.success("결측값 처리가 완료되었습니다. 분석을 진행하세요.", icon="✅")
+                                st.session_state.causal_inference_ready = True
 
                             # Check for missing or infinite values in combined data
                             if st.button('모델 학습 시작', key='train_model_button'):
@@ -2646,15 +2971,15 @@ if login():  # If logged in, show the rest of the app
                                         # Display model summary
                                         # st.markdown("<h3 style='font-size:14px;'>Model Results:</h3>", unsafe_allow_html=True)
                                         # Assuming result is a statsmodels results object
-                                        summary_html = result.summary().as_html()
+                                        # summary_html = result.summary().as_html()
 
                                         # Display the summary as HTML
                                         # summary_df = result.summary().tables[1]
                                         # st.dataframe(summary_df)
 
-                                        st.markdown(summary_html, unsafe_allow_html=True)
-                                        st.write(" ")
-                                        st.write("---")
+                                        # st.markdown(summary_html, unsafe_allow_html=True)
+                                        # st.write(" ")
+                                        # st.write("---")
 
                                         st.markdown("<h4 style='font-size:14px;'>Model OR & P-value:</h4>", unsafe_allow_html=True)
                                         summary_table = result.summary2().tables[1]  # Get the detailed table
@@ -2745,8 +3070,8 @@ if login():  # If logged in, show the rest of the app
                                     except Exception as e:
                                         st.error(f"모델 학습 중 오류가 발생했습니다: {str(e)}")
 
-            except ValueError as e:
-                st.error("적합하지 않는 데이터를 선택하였습니다. 다시 시도해주세요.")
+            # except ValueError as e:
+            #     st.error("적합하지 않는 데이터를 선택하였습니다. 다시 시도해주세요.")
             except OSError as e:  # 파일 암호화 또는 해독 문제 처리
                 st.error("파일이 암호화된 것 같습니다. 파일의 암호를 푼 후 다시 시도해주세요.")
 
@@ -2769,7 +3094,7 @@ if login():  # If logged in, show the rest of the app
         # 1. 파일 업로드
         st.markdown("<h4 style='color:grey;'>데이터 업로드</h4>", unsafe_allow_html=True)
         st.warning("생존분석은 생존 시간과 상태(생존/사망 등)를 포함하는 데이터를 필요로 합니다.", icon="🚨")
-        uploaded_file = st.file_uploader("생존분석에 이용하실 데이터 파일을 업로드해주세요.")
+        uploaded_file = st.file_uploader("📁 생존분석에 이용하실 데이터 파일을 업로드해주세요:")
 
         if uploaded_file is not None:
             try:
@@ -2789,7 +3114,7 @@ if login():  # If logged in, show the rest of the app
                     st.markdown("<h4 style='color:grey;'>데이터 미리보기</h4>", unsafe_allow_html=True)
 
                     # Add a radio button for the user to select the option
-                    selected_option = st.radio("옵션을 선택하세요:", ["데이터", "결측수", "요약통계"], key="💻 생존분석")
+                    selected_option = st.radio("✔️ 옵션을 선택해주세요:", ["데이터", "결측수", "요약통계"], key="💻 생존분석")
 
                     # Show the corresponding output based on the user's selection
                     if selected_option == "데이터":
@@ -2834,8 +3159,8 @@ if login():  # If logged in, show the rest of the app
                     if use_duration_column:
                         # If the duration column exists
                         st.markdown("<h5>생존 기간과 생존 상태 선택</h5>", unsafe_allow_html=True)
-                        duration_column = st.selectbox("생존 기간을 나타내는 열을 선택해주세요.", options=["-- 선택 --"] + list(df.columns), index=0)
-                        event_column = st.selectbox("생존 상태(1=이벤트 발생, 0=검열)를 나타내는 열을 선택해주세요.", options=["-- 선택 --"] + list(df.columns), index=0)
+                        duration_column = st.selectbox("✔️ 생존 기간을 나타내는 열을 선택해주세요:", options=["-- 선택 --"] + list(df.columns), index=0)
+                        event_column = st.selectbox("✔️ 생존 상태(1=이벤트 발생, 0=검열)를 나타내는 열을 선택해주세요:", options=["-- 선택 --"] + list(df.columns), index=0)
 
                         if duration_column != '-- 선택 --' and event_column != '-- 선택 --':
                             try:
@@ -2856,19 +3181,19 @@ if login():  # If logged in, show the rest of the app
                                     f"<p style='font-size:16px; color:red;'><strong>{missing_duration_count}개의 결측이 '{duration_column}' 열에, {missing_event_count}개의 결측이 '{event_column}' 열에 발견되었습니다.</strong></p>",
                                     unsafe_allow_html=True
                                 )
-                                if st.checkbox("결측된 관측을 검열로 기록하시려면 선택하세요. 미선택 시 결측 행은 분석에서 제외됩니다."):
+                                if st.checkbox("✔️ 결측된 관측을 검열로 기록하시려면 선택해주세요: (미선택 시 결측 행은 분석에서 제외됩니다.)"):
                                     censoring_num = st.number_input("검열까지의 기간을 입력해주세요:")
                                     if censoring_num:
                                         df[duration_column] = df[duration_column].fillna(censoring_num)
                                         df[event_column] = df[event_column].fillna(0)  # Mark as censored
                             else:
-                                st.markdown("<p style='font-size:16px; color:black;'><strong>결측 처리 작업 없이 분석이 가능합니다.</strong></p>", unsafe_allow_html=True)
+                                st.success("결측 처리 작업 없이 분석이 가능합니다.")
 
                     else:
                         # If the duration column does not exist
                         st.markdown("<h5>생존(검열)일자 생존 상태 선택</h5>", unsafe_allow_html=True)
-                        time_column = st.selectbox("생존(검열)일자를 나타내는 열을 선택해주세요.", options=["-- 선택 --"] + list(df.columns), index=0)
-                        event_column = st.selectbox("생존 상태(1=이벤트 발생, 0=검열)를 나타내는 열을 선택해주세요.", options=["-- 선택 --"] + list(df.columns), index=0)
+                        time_column = st.selectbox("✔️ 생존(검열)일자를 나타내는 열을 선택해주세요:", options=["-- 선택 --"] + list(df.columns), index=0)
+                        event_column = st.selectbox("✔️ 생존 상태(1=이벤트 발생, 0=검열)를 나타내는 열을 선택해주세요:", options=["-- 선택 --"] + list(df.columns), index=0)
 
                         if time_column != '-- 선택 --' and event_column != '-- 선택 --':
                             try:
@@ -2889,14 +3214,14 @@ if login():  # If logged in, show the rest of the app
                                     f"<p style='font-size:16px; color:red;'><strong>{missing_time_count}개의 결측이 '{time_column}' 열에, {missing_event_count}개의 결측이 '{event_column}' 열에 발견되었습니다.</strong></p>",
                                     unsafe_allow_html=True
                                 )
-                                if st.checkbox("결측된 관측을 검열로 기록하시려면 선택하세요. 미선택 시 결측 행은 분석에서 제외됩니다."):
+                                if st.checkbox("✔️ 결측된 관측을 검열로 기록하시려면 선택해주세요: (미선택 시 결측 행은 분석에서 제외됩니다.)"):
                                     censoring_date = st.date_input("검열일자를 입력해주세요 (YYYY-MM-DD):")
                                     if censoring_date:
                                         censoring_date_numeric = pd.to_datetime(censoring_date, format='%Y%m%d')
                                         df[time_column] = df[time_column].fillna(censoring_date_numeric)
                                         df[event_column] = df[event_column].fillna(0)  # Mark as censored
                             else:
-                                st.markdown("<p style='font-size:16px; color:black;'><strong>결측 처리 작업 없이 분석이 가능합니다.</strong></p>", unsafe_allow_html=True)
+                                st.success("결측 처리 작업 없이 분석이 가능합니다.")
 
                             # Calculate durations based on the last date
                             last_date = df[time_column].max()
@@ -2963,7 +3288,7 @@ if login():  # If logged in, show the rest of the app
 
                                 # Categorical variable selection
                                 km_cat_column = st.selectbox(
-                                    "KM Curve를 볼 변수를 선택해주세요.",
+                                    "✔️ KM Curve를 볼 변수를 선택해주세요:",
                                     options=["-- 선택 --"] + [col for col in df.columns if df[col].nunique() < 10],
                                     index=0,
                                     key="km_cat_column"  # Use key to bind to session state
@@ -3063,14 +3388,14 @@ if login():  # If logged in, show the rest of the app
 
                                 # Select continuous and categorical explanatory variables
                                 continuous_columns = st.multiselect(
-                                    "- 연속형 설명변수(X)를 선택해주세요.",
+                                    "✔️ 연속형 설명변수(X)를 선택해주세요:",
                                     df.select_dtypes(include=['float64', 'int64']).columns,
                                     key="continuous_columns_selection"
                                 )
 
 
                                 categorical_columns = st.multiselect(
-                                    "- 범주형 설명변수(X)를 선택해주세요.",
+                                    "✔️ 범주형 설명변수(X)를 선택해주세요:",
                                     get_categorical_columns(df),
                                     key="categorical_columns_selection"
                                 )
@@ -3082,7 +3407,7 @@ if login():  # If logged in, show the rest of the app
                                         st.session_state.categorical_columns = categorical_columns
                                         st.session_state.proceed_to_preprocessing = True
                                     else:
-                                        st.warning("설명변수를 한 개 이상 선택해주세요.", icon="⚠️")
+                                        st.warning("설명변수를 한 개 이상 선택하셔야 합니다.", icon="⚠️")
 
                                 # Check if preprocessing should proceed
                                 if st.session_state.proceed_to_preprocessing:
@@ -3100,11 +3425,14 @@ if login():  # If logged in, show the rest of the app
                                     # Check and display missing values for the selected variables
                                     for column in st.session_state.continuous_columns:
                                         missing_count = df[column].isna().sum()
-                                        st.markdown(f"<p style='color:firebrick;'>⚠️ '{column}'에 결측치 {missing_count}개가 있습니다.</p>", unsafe_allow_html=True)
-                                        # Select strategy for handling missing values
-                                        if missing_count > 0:
+                                        if missing_count > 0:  # 결측치가 있는 경우에만 메시지 출력
+                                            st.markdown(
+                                                f"<p style='color:firebrick;'>⛔ 선택하신 연속형 변수 '{column}'에 결측치 {missing_count}개가 있습니다.</p>",
+                                                unsafe_allow_html=True
+                                            )
+                                            # Select strategy for handling missing values
                                             strategy = st.selectbox(
-                                                f"- 선택하신 연속형 설명변수 '{column}'의 결측 처리 방법을 선택하세요:",
+                                                f"✔️ 선택하신 연속형 설명변수 '{column}'의 결측 처리 방법을 선택해주세요:",
                                                 ['-- 선택 --', '결측이 존재하는 행을 제거', '해당 열의 평균값으로 대체', '해당 열의 중앙값으로 대체', '해당 열의 최빈값으로 대체'],
                                                 key=f"{column}_strategy"
                                             )
@@ -3113,11 +3441,14 @@ if login():  # If logged in, show the rest of the app
 
                                     for column in st.session_state.categorical_columns:
                                         missing_count = df[column].isna().sum()
-                                        st.markdown(f"<p style='color:firebrick;'>⚠️ '{column}'에 결측치 {missing_count}개가 있습니다.</p>", unsafe_allow_html=True)
-                                        if missing_count > 0:
+                                        if missing_count > 0:  # 결측치가 있는 경우에만 메시지 출력
+                                            st.markdown(
+                                                f"<p style='color:firebrick;'>⛔ 선택하신 범주형 변수 '{column}'에 결측치 {missing_count}개가 있습니다.</p>",
+                                                unsafe_allow_html=True
+                                            )
                                             # Select strategy for handling missing values
                                             strategy = st.selectbox(
-                                                f"- 선택하신 범주형 설명변수 '{column}'의 결측 처리 방법을 선택하세요:",
+                                                f"✔️ 선택하신 범주형 설명변수 '{column}'의 결측 처리 방법을 선택해주세요:",
                                                 ['-- 선택 --', '결측이 존재하는 행을 제거', '해당 열의 최빈값으로 대체'],
                                                 key=f"{column}_strategy"
                                             )
@@ -3197,66 +3528,67 @@ if login():  # If logged in, show the rest of the app
                                             height=600
                                         )
                                         st.plotly_chart(fig)
-            except ValueError as e:
-                st.error("적합하지 않는 데이터를 선택하였습니다. 다시 시도해주세요.")
+            # except ValueError as e:
+            #     st.error("적합하지 않는 데이터를 선택하였습니다. 다시 시도해주세요.")
             except OSError as e:  # 파일 암호화 또는 해독 문제 처리
                 st.error("파일이 암호화된 것 같습니다. 파일의 암호를 푼 후 다시 시도해주세요.")
 
-    # elif page == "⛔ 오류가 발생했어요":
-    #     # Mailgun API Information
-    #     API_KEY = '5b177fd33abf249de3f999a97688833a-5dcb5e36-e3549260'
-    #     DOMAIN_NAME = 'sandbox9b0aa132fcdb42e2a35c0642808b1f8d.mailgun.org'
+    elif page == "⛔ 오류가 발생했어요":
+        # SendGrid API 키 및 이메일 설정
+        SENDGRID_API_KEY = "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"
+        MY_EMAIL = "hui135@snu.ac.kr"  # 자신의 이메일 주소
 
-    #     # Email sending function via Mailgun
-    #     def send_email_via_mailgun(subject, message):
-    #         try:
-    #             response = requests.post(
-    #                 f"https://api.mailgun.net/v3/{DOMAIN_NAME}/messages",
-    #                 auth=("api", API_KEY),
-    #                 data={
-    #                     "from": f"Excited User <mailgun@{DOMAIN_NAME}>",  # Sender address
-    #                     "to": ["hui135@snu.ac.kr"],  # Recipient address
-    #                     "subject": subject,  # Email subject
-    #                     "text": message  # Email body
-    #                 }
-    #             )
-    #             return response
-    #         except Exception as e:
-    #             st.error(f"An error occurred: {e}")
-    #             return None
+        # 이메일 전송 함수
+        def send_email_via_sendgrid(subject, content):
+            try:
+                # 이메일 구성
+                email = Mail(
+                    from_email="hui135@snu.ac.kr",  # 발신자 이메일
+                    to_emails=MY_EMAIL,                  # 수신자 이메일
+                    subject=subject,
+                    html_content=f"<strong>{content}</strong>"
+                )
 
-    #     st.markdown(
-    #     """
-    #     <div style="background-color: #e9f5ff; padding: 10px; border-radius: 10px;">
-    #         <h2 style="color: #000000;">⛔ 오류가 발생했어요</h2>
-    #     </div>
-    #     """,
-    #     unsafe_allow_html=True
-    #     )
-    #     st.divider()
-    #     st.write(" ")
+                # SendGrid 클라이언트를 사용하여 이메일 전송
+                sg = SendGridAPIClient(SENDGRID_API_KEY)
+                response = sg.send(email)
+                return response  # 응답 반환
+            except Exception as e:
+                st.error(f"Error: {e}")
+                return None
 
-    #     # Get user input
-    #     st.markdown("<h4 style='color:grey;'>어떤 어려움이 있으셨나요?</h4>", unsafe_allow_html=True)
-    #     user_input = st.text_area("여기에 겪고계신 어려움을 작성해주세요. 입력하신 메세지는 김희연 연구원에게 전달됩니다.", key="user_input")
+        st.markdown(
+        """
+        <div style="background-color: #e9f5ff; padding: 10px; border-radius: 10px;">
+            <h2 style="color: #000000;">⛔ 오류가 발생했어요</h2>
+        </div>
+        """,
+        unsafe_allow_html=True
+        )
+        st.divider()
+        st.write(" ")
 
-    #     # Send an email when the submit button is clicked
-    #     if st.button("제출", key="submit_button_1"):
-    #         if user_input.strip() == "":  # Check if the input is empty
-    #             st.warning("제출 전 내용을 작성해주세요.")
-    #         else:
-    #             response = send_email_via_mailgun("User Feedback", user_input)
+        # Get user input
+        st.markdown("<h4 style='color:grey;'>어떤 어려움이 있으셨나요?</h4>", unsafe_allow_html=True)
+        user_input = st.text_area("여기에 겪고계신 어려움을 작성해주세요. 입력하신 메세지는 김희연 연구원에게 전달됩니다.", key="user_input")
 
-    #             # If response is None, an error occurred during the request
-    #             if response is None:
-    #                 st.error("전송에 실패하였습니다.")
-    #             else:
-    #                 # Check response status code
-    #                 if response.status_code == 200:
-    #                     st.success("성공적으로 전송되었습니다.")
-    #                 else:
-    #                     st.error(f"Send failed: {response.text}")
-    #                     st.write(f"Status code: {response.status_code}")
+        # 제출 버튼 클릭 시 동작
+        if st.button("제출", key="submit_button_1"):
+            if user_input.strip() == "":  # 빈 입력 확인
+                st.warning("제출 전 내용을 작성해주세요.")
+            else:
+                # 이메일 전송 시도
+                response = send_email_via_sendgrid("User Feedback", user_input)
+
+                if response is None:
+                    st.error("전송에 실패하였습니다.")  # 요청 오류 발생 시
+                else:
+                    # 응답 상태 코드 확인
+                    if response.status_code == 202:  # 202는 SendGrid 성공 상태 코드
+                        st.success("성공적으로 전송되었습니다.")
+                    else:
+                        st.error(f"Send failed: {response.text}")
+                        st.write(f"Status code: {response.status_code}")
 
 else:
     # st.markdown("<h4 style='color:grey;'>시스템 접근을 위해 로그인이 필요합니다.</h4>", unsafe_allow_html=True)
@@ -3265,7 +3597,7 @@ else:
     st.markdown(title_html, unsafe_allow_html=True)
     st.markdown(contact_info_html, unsafe_allow_html=True)
     st.divider()
-    st.info('강남센터 연구자 지원 이용을 위해선 좌측 사이드바에서 로그인이 필요합니다.', icon="✅")
+    st.info('강남센터 연구자 지원 시스템 이용을 위해선 좌측 사이드바에서 로그인이 필요합니다.', icon="✅")
     # st.markdown(
     # """
     # <div border-radius: 10px;">
