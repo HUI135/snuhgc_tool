@@ -759,7 +759,7 @@ if login():  # If logged in, show the rest of the app
                         fill_option = st.radio("✔️ 처리 방법을 선택해주세요:", ("전부 0으로", "전부 99로", "전부 공백으로"))
 
                         # 코딩 완료 버튼
-                        if st.button("코딩 완료"):
+                        if st.button("🚀 코딩 완료"):
                             # 데이터 프레임 복사
                             coded_df = df.copy()
 
@@ -2305,7 +2305,7 @@ if login():  # If logged in, show the rest of the app
                     st.session_state.X_columns = continuous_columns + categorical_columns
 
                     # 선택 완료 버튼
-                    if st.button('선택 완료', key='complete_button'):
+                    if st.button('🚀 선택 완료', key='complete_button'):
                         if len(continuous_columns) + len(categorical_columns) > 1:
                             st.session_state.continuous_columns = continuous_columns
                             st.session_state.categorical_columns = categorical_columns
@@ -2875,7 +2875,7 @@ if login():  # If logged in, show the rest of the app
                         st.session_state.X_columns = continuous_columns + categorical_columns
 
                         # Add a button to confirm the selections
-                        if st.button('선택 완료', key='complete_button'):
+                        if st.button('🚀 선택 완료', key='complete_button'):
                             if y_column and (continuous_columns or categorical_columns):  # Ensure that y and at least one X is selected
                                 st.session_state.y_column = y_column
                                 st.session_state.continuous_columns = continuous_columns
@@ -3567,7 +3567,7 @@ if login():  # If logged in, show the rest of the app
                         )
 
                         # 선택 완료 버튼
-                        if st.button('선택 완료', key='complete_button'):
+                        if st.button('🚀 선택 완료', key='complete_button'):
                             if len(continuous_columns) + len(categorical_columns) > 1:
                                 st.session_state.continuous_columns = continuous_columns
                                 st.session_state.categorical_columns = categorical_columns
