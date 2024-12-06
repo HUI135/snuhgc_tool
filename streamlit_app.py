@@ -1117,7 +1117,7 @@ if login():  # If logged in, show the rest of the app
                                 st.download_button(
                                     label="CSV 다운로드",
                                     data=csv,
-                                    file_name="bc_table.csv",
+                                    file_name="coded_data.csv",
                                     mime='text/csv'
                                 )
                             elif export_format == "Excel":
@@ -1134,7 +1134,7 @@ if login():  # If logged in, show the rest of the app
                                     st.download_button(
                                         label="Excel 다운로드",
                                         data=buffer,
-                                        file_name="bc_table.xlsx",
+                                        file_name="coded_data.xlsx",
                                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                                     )
                                 finally:
