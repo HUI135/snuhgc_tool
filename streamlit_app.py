@@ -507,8 +507,10 @@ if login():  # If logged in, show the rest of the app
                 st.error("파일이 암호화된 것 같습니다. 파일의 암호를 푼 후 다시 시도해주세요.")
             except Exception as e:
                 st.error(f"오류가 발생하였으므로 보고가 필요합니다, 문의해주시면 감사하겠습니다.\n: {str(e)}")
+                st.error("자세한 오류 정보: ", traceback.format_exc())  # 스택 트레이스 출력
             except ValueError as e:
                 st.error(f"오류가 발생하였으므로 보고가 필요합니다, 문의해주시면 감사하겠습니다.\n: {str(e)}")
+                st.error("자세한 오류 정보: ", traceback.format_exc())  # 스택 트레이스 출력
 
     elif page == "📝 데이터 코딩":
         st.markdown(
@@ -727,7 +729,7 @@ if login():  # If logged in, show the rest of the app
                             )
 
                     # UI 구성
-                    new_code_name = st.text_input("▶️ 추가할 코드를 입력하세요:")
+                    new_code_name = st.number_input("▶️ 추가할 코드를 입력하세요:", min_value=0, max_value=100, step=1, format="%d")
                     if st.button("코드 추가"):  # 확인 버튼 추가
                         if new_code_name:  # 입력된 코드가 있는지 확인
                             if new_code_name not in st.session_state.codes:
@@ -1060,13 +1062,13 @@ if login():  # If logged in, show the rest of the app
                     st.write(" ")
 
                     # 입력한 코드를 처리
-                    current_code = st.text_input("▶️ 코드를 입력하세요 (ex - 0, 1, 2):", key="code_input")
+                    current_code = st.number_input("▶️ 추가할 코드를 입력하세요:", min_value=0, max_value=100, step=1, format="%d")
 
                     if current_code:
                         try:
                             current_code = int(current_code)
                         except ValueError:
-                            st.error("올바른 숫자 형식의 코드를 입력해주세요.")
+                            # st.error("올바른 숫자 형식의 코드를 입력해주세요.")
                             st.stop()
 
                         # Initialize phrases_by_code for the given code
@@ -1272,10 +1274,11 @@ if login():  # If logged in, show the rest of the app
             except Exception as e:
                 st.error(f"오류가 발생하였으므로 보고가 필요합니다, 문의해주시면 감사하겠습니다.\n: {str(e)}")
                 st.error("자세한 오류 정보: ", traceback.format_exc())  # 스택 트레이스 출력
-            # except ValueError as e:
-                # st.error(f"오류가 발생하였으므로 보고가 필요합니다, 문의해주시면 감사하겠습니다.\n: {str(e)}")
-            # except OSError as e:  # 파일 암호화 또는 해독 문제 처리
-                # st.error("파일이 암호화된 것 같습니다. 파일의 암호를 푼 후 다시 시도해주세요.")
+            except ValueError as e:
+                st.error(f"오류가 발생하였으므로 보고가 필요합니다, 문의해주시면 감사하겠습니다.\n: {str(e)}")
+                st.error("자세한 오류 정보: ", traceback.format_exc())  # 스택 트레이스 출력
+            except OSError as e:  # 파일 암호화 또는 해독 문제 처리
+                st.error("파일이 암호화된 것 같습니다. 파일의 암호를 푼 후 다시 시도해주세요.")
 
     elif page == "📊 시각화":
         st.markdown(
@@ -1550,6 +1553,8 @@ if login():  # If logged in, show the rest of the app
                         continuous_columns = get_continuous_columns(df)
                         # `-- 선택 --`을 첫 번째 항목으로 추가
                         continuous_columns.insert(0, "-- 선택 --")  
+                        categorical_columns = get_categorical_columns(df)
+                        categorical_columns.insert(0, "-- 선택 --")  
                         selected_column_1 = st.selectbox("✔️ 연속형 변수 선택", continuous_columns, index=0, key="continuous_variable")
                         selected_column_2 = st.selectbox("✔️ 그룹열을 선택해주세요:", categorical_columns, index=0, key="group_variable")
 
@@ -2863,8 +2868,8 @@ if login():  # If logged in, show the rest of the app
 
         # 1. 파일 업로드
         st.markdown("<h4 style='color:grey;'>데이터 업로드</h4>", unsafe_allow_html=True)
-        st.warning("로지스틱 회귀는 범주형 타입의 종속변수를 분석합니다.", icon="🚨")
         uploaded_file = st.file_uploader("📁 로지스틱 회귀분석에 이용하실 데이터 파일을 업로드해주세요:")
+        st.warning("로지스틱 회귀는 범주형 타입의 종속변수를 분석합니다.", icon="🚨")
 
         if uploaded_file is not None:
             try:
@@ -3359,8 +3364,10 @@ if login():  # If logged in, show the rest of the app
 
             except Exception as e:
                 st.error(f"오류가 발생하였으므로 보고가 필요합니다, 문의해주시면 감사하겠습니다.\n: {str(e)}")
+                st.error("자세한 오류 정보: ", traceback.format_exc())  # 스택 트레이스 출력
             except ValueError as e:
                 st.error(f"오류가 발생하였으므로 보고가 필요합니다, 문의해주시면 감사하겠습니다.\n: {str(e)}")
+                st.error("자세한 오류 정보: ", traceback.format_exc())  # 스택 트레이스 출력
             except OSError as e:  # 파일 암호화 또는 해독 문제 처리
                 st.error("파일이 암호화된 것 같습니다. 파일의 암호를 푼 후 다시 시도해주세요.")
 
@@ -3382,8 +3389,8 @@ if login():  # If logged in, show the rest of the app
 
         # 1. 파일 업로드
         st.markdown("<h4 style='color:grey;'>데이터 업로드</h4>", unsafe_allow_html=True)
-        st.warning("생존분석은 생존 시간과 상태(생존/사망 등)를 포함하는 데이터를 필요로 합니다.", icon="🚨")
         uploaded_file = st.file_uploader("📁 생존분석에 이용하실 데이터 파일을 업로드해주세요:")
+        st.warning("생존분석은 사건 발생까지의 시간(duration)을 나타내는 변수와 사건발생 여부(event)를 나타내는 변수를 포함하는 데이터를 필요로 합니다.", icon="🚨")
 
         if uploaded_file is not None:
             try:
@@ -3467,82 +3474,61 @@ if login():  # If logged in, show the rest of the app
                     duration_column = None  # Initialize duration_column as None
                     
                     # Session state 초기화
-                    if 'analysis_ready' not in st.session_state:
+                    if "analysis_ready" not in st.session_state:
                         st.session_state.analysis_ready = False
 
                     # Step 1: 변수 선택
                     st.markdown("<h4 style='color:grey;'>☑️ 변수 선택</h4>", unsafe_allow_html=True)
-                    use_duration_column = st.checkbox("생존 '기간' 열이 이미 존재합니까?", key="use_duration_column")
 
-                    if use_duration_column:
-                        # 생존 기간 열이 존재할 경우
-                        duration_column = st.selectbox("✔️ 생존 기간을 나타내는 열을 선택해주세요:", options=["-- 선택 --"] + list(df.columns), index=0, key="duration_column")
-                        event_column = st.selectbox("✔️ 생존 상태(1=이벤트 발생, 0=검열)를 나타내는 열을 선택해주세요:", options=["-- 선택 --"] + list(df.columns), index=0, key="event_column")
-                    else:
-                        # 생존 기간 열이 없을 경우
-                        time_column = st.selectbox("✔️ 생존(검열)일자를 나타내는 열을 선택해주세요:", options=["-- 선택 --"] + list(df.columns), index=0, key="time_column")
-                        event_column = st.selectbox("✔️ 생존 상태(1=이벤트 발생, 0=검열)를 나타내는 열을 선택해주세요:", options=["-- 선택 --"] + list(df.columns), index=0, key="event_column_alt")
+                    # 생존 기간 열이 이미 존재하는 경우
+                    duration_column = st.selectbox(
+                        "✔️ 사건이 발생하기까지의 시간(duration)을 나타내는 연속형 변수를 선택하세요:",
+                        options=["-- 선택 --"] + list(df.columns),
+                        index=0,
+                        key="duration_column"
+                    )
+                    event_column = st.selectbox(
+                        "✔️ 사건이 발생했는지 여부(event)를 나타내는 이진 변수를 선택하세요:",
+                        options=["-- 선택 --"] + list(df.columns),
+                        index=0,
+                        key="event_column"
+                    )
 
-                    # Step 2: 기준 날짜 설정 (생존 기간 열이 없을 때만)
-                    if not use_duration_column:
-                        if time_column != "-- 선택 --" and event_column != "-- 선택 --":
-                            st.markdown("<h4 style='color:grey;'>☑️ 기준 날짜 설정</h4>", unsafe_allow_html=True)
-                            baseline_date = st.date_input("기준 날짜를 입력해주세요 (YYYY-MM-DD):", key="baseline_date")
+                    if duration_column != "-- 선택 --" and event_column != "-- 선택 --":
+                        # 결측 파악
+                        missing_duration_count = df[duration_column].isna().sum()
+                        missing_event_count = df[event_column].isna().sum()
+                        st.divider()
+                        st.markdown("<h4 style='color:grey;'>결측 파악</h4>", unsafe_allow_html=True)
 
-                            # time_column 변환
-                            df[time_column] = pd.to_datetime(df[time_column], errors="coerce")
+                        if missing_duration_count > 0 or missing_event_count > 0:
+                            st.markdown(
+                                f"<p style='font-size:16px; color:red;'><strong>{missing_duration_count}개의 결측이 '{duration_column}' 열에, "
+                                f"{missing_event_count}개의 결측이 '{event_column}' 열에 발견되었습니다.</strong></p>",
+                                unsafe_allow_html=True
+                            )
+                            if st.checkbox("✔️ 결측된 관측을 검열로 기록하시려면 선택해주세요: (미선택 시 결측 행은 분석에서 제외됩니다.)"):
+                                # 예제: 검열 기간 입력
+                                censoring_date = st.number_input("검열 기간(정수 입력)을 설정해주세요:", min_value=0, max_value=10000, step=1)
+                                if censoring_date:
+                                    df[duration_column] = df[duration_column].fillna(censoring_date)
+                                    df[event_column] = df[event_column].fillna(0)  # Mark as censored
+                        else:
+                            st.success("결측 처리 작업 없이 분석이 가능합니다.", icon="✅")
 
-                            # Step 3: 결측 파악 및 처리 (선택된 열이 유효한 경우에만)
-                            st.markdown("<h4 style='color:grey;'>☑️ 결측 파악 및 처리</h4>", unsafe_allow_html=True)
-
-                            missing_time_count = df[time_column].isna().sum()
-                            missing_event_count = df[event_column].isna().sum()
-
-                            # 결측 메시지 출력
-                            if missing_time_count > 0 or missing_event_count > 0:
-                                st.markdown(
-                                    f"<p style='font-size:16px; color:red;'>"
-                                    f"<strong>'{time_column}' 열에 {missing_time_count}개의 결측이, "
-                                    f"'{event_column}' 열에 {missing_event_count}개의 결측이 발견되었습니다.</strong></p>",
-                                    unsafe_allow_html=True
-                                )
-                                if st.checkbox("✔️ 결측된 관측을 검열로 기록하시겠습니까?", key="handle_missing"):
-                                    censoring_date = st.date_input(
-                                        f"'{time_column}' 열의 결측값을 채우기 위해 검열일자를 입력해주세요 (YYYY-MM-DD):",
-                                        key="censoring_date"
-                                    )
-                                    if censoring_date:
-                                        censoring_date = pd.to_datetime(censoring_date)
-                                        df[time_column] = df[time_column].fillna(censoring_date)
-                                        df[event_column] = df[event_column].fillna(0)  # 검열로 처리
-                            else:
-                                st.success("결측 처리 작업 없이 분석이 가능합니다.")
-
-                    # Step 4: Duration 계산 (결측 처리 이후)
-                    if not use_duration_column and time_column != "-- 선택 --" and event_column != "-- 선택 --" and "baseline_date" in locals():
-                        if df[time_column].isna().sum() == 0:  # 결측값이 없는 경우에만 계산
-                            duration_column = "duration"
-                            df[duration_column] = (df[time_column] - pd.to_datetime(baseline_date)).dt.days
-
-                    # 분석 시작 버튼
-                    st.write(" ")
-                    if st.button("🚀 분석 시작", key="start_analysis"):
-                        st.session_state.analysis_ready = True
+                        # 분석 시작 버튼
+                        st.write(" ")
+                        if st.button("🚀 분석 시작", key="start_analysis"):
+                            st.session_state.analysis_ready = True
 
                     # 분석 결과 표시
                     if st.session_state.analysis_ready:
                         st.divider()
                         st.header("💻 생존분석 결과", divider='rainbow')
 
-                        if use_duration_column:
-                            # 기간 열이 존재하는 경우
-                            df_to_display = df[[event_column, duration_column]]
-                            durations = df[duration_column].dropna()
-                        else:
-                            # 기간 열이 없는 경우
-                            df["baseline_date"] = baseline_date  # 기준 날짜 추가
-                            df_to_display = df[[event_column, "baseline_date", time_column, duration_column]]
-                            durations = df[duration_column].dropna()
+                        # 기간 열이 존재하는 경우
+                        df_to_display = df[[event_column, duration_column]]
+                        durations = df[duration_column].dropna()
 
                         events = df[event_column].dropna()
 
@@ -3590,11 +3576,8 @@ if login():  # If logged in, show the rest of the app
                         # Categorical variable selection for Kaplan-Meier curve
                         excluded_columns = ["baseline_date", duration_column, event_column]
 
-                        if not use_duration_column:
-                            excluded_columns.append(time_column)
-
                         km_cat_column = st.selectbox(
-                            "✔️ KM Curve를 볼 변수를 선택해주세요:",
+                            "✔️ KM Curve를 그룹별로 확인할 그룹열 변수를 선택해주세요:"",
                             options=["-- 선택 --"] + [col for col in df.columns if col not in excluded_columns and df[col].nunique() < 10],
                             index=0,
                             key="km_cat_column"
@@ -3605,17 +3588,10 @@ if login():  # If logged in, show the rest of the app
                             st.markdown("<h6>Event Dataframe</h6>", unsafe_allow_html=True)
 
                             try:
-                                # DataFrame display logic
-                                if use_duration_column:
-                                    # 생존 기간 열 사용 시
-                                    st.dataframe(
-                                        df[[event_column, duration_column, st.session_state.km_cat_column]], use_container_width=True
-                                    )
-                                else:
-                                    # 생존(검열)일자 열 사용 시
-                                    st.dataframe(
-                                        df[[event_column, time_column, duration_column, st.session_state.km_cat_column]], use_container_width=True
-                                    )
+                                # 생존 기간 열 사용 시
+                                st.dataframe(
+                                    df[[event_column, duration_column, st.session_state.km_cat_column]], use_container_width=True
+                                )
                             except KeyError as e:
                                 st.error(f"선택된 열 중 하나가 데이터프레임에 없습니다. 오류: {e}")
 
@@ -3701,7 +3677,7 @@ if login():  # If logged in, show the rest of the app
                             return categorical_columns + low_cardinality_numerical
 
                         # UI for variable selection
-                        st.header("💻 Cox Proportional Hazard Modeling", divider='rainbow')
+                        st.header("💻 Cox Proportional Hazards Modeling", divider='rainbow')
                         st.markdown("<h4 style='color:grey;'>변수 선택</h4>", unsafe_allow_html=True)
 
                         # 연속형 변수 선택 (제외된 열 제외)
@@ -4027,7 +4003,6 @@ if login():  # If logged in, show the rest of the app
 
                                 except Exception as e:
                                     st.error(f"모델 학습 중 오류가 발생했습니다: {e}")
-
                                     st.error("자세한 오류 정보: ", traceback.format_exc())  # 스택 트레이스 출력
 
             except Exception as e:
@@ -4077,7 +4052,7 @@ if login():  # If logged in, show the rest of the app
 
         # Get user input
         st.markdown("<h4 style='color:grey;'>어떤 어려움이 있으셨나요?</h4>", unsafe_allow_html=True)
-        user_input = st.text_area("여기에 겪고계신 어려움을 작성해주세요. 입력하신 메세지는 김희연 연구원에게 전달됩니다.", key="user_input")
+        user_input = st.text_area("입력하신 메세지는 김희연 연구원에게 전달됩니다.", key="user_input")
 
         # 제출 버튼 클릭 시 동작
         if st.button("제출", key="submit_button_1"):
