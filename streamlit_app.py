@@ -42,6 +42,7 @@ from sendgrid.helpers.mail import Mail
 import os
 import tempfile
 import traceback
+import re
 # from causallearn.utils.GraphUtils import graph_to_adjacency_matrix
 
 # wide format
@@ -128,7 +129,7 @@ if login():  # If logged in, show the rest of the app
     # Page-specific content
     if page == "-- 선택 --":
         # Checkbox for updates
-        toggle = st.checkbox("**📅 24.12.11 📅 Update 사항 자세히보기**")
+        toggle = st.checkbox("**📅 24.12.11 📅** Update 사항 자세히보기")
 
         if toggle:
             # Toggle 활성화 시 Markdown 출력
@@ -413,19 +414,22 @@ if login():  # If logged in, show the rest of the app
                     selected_column_base = st.selectbox("✔️ 시각화할 변수 열을 선택해주세요:", ["-- 선택 --"] + original_columns)
 
                     if selected_column_base != "-- 선택 --":
-                        # 피벗 데이터프레임에서 선택한 열에 해당하는 관련 열 필터링
+                        # 원본 df에서 선택한 열에 대해 row_number를 기준으로 피벗된 열을 선택
                         visit_columns = [
-                            col for col in st.session_state.df_pivot.columns 
-                            if col.startswith(selected_column_base + '_')
+                            f"{selected_column_base}_{i}" for i in range(1, max_len+1)
                         ]
 
-                        if visit_columns:
+                        # visit_columns 필터링: 유효한 열만 포함 (df_pivot에서 해당 열이 존재하는지 확인)
+                        valid_visit_columns = [col for col in visit_columns if col in st.session_state.df_pivot.columns]
+
+                        if valid_visit_columns:
                             # 각 방문 회차별 평균 계산
-                            mean_values = st.session_state.df_pivot[visit_columns].mean()
+                            mean_values = st.session_state.df_pivot[valid_visit_columns].mean()
 
                             # Function to plot average LabResult changes across visits
                             def plot_average_changes(mean_values):
-                                visit_numbers = [int(col.split('_')[1]) for col in mean_values.index]
+                                # 방문 회차 추출 (ex: '_1', '_2', '_3' -> '1', '2', '3')
+                                visit_numbers = [int(col.split('_')[-1]) for col in mean_values.index]
                                 avg_values = mean_values.values
 
                                 fig = go.Figure()
@@ -433,7 +437,7 @@ if login():  # If logged in, show the rest of the app
                                     x=visit_numbers,
                                     y=avg_values,
                                     mode='lines+markers',
-                                    name="Average LabResult",
+                                    name=f"Average {selected_column_base}",
                                     marker=dict(symbol='circle', size=10)
                                 ))
 
@@ -666,7 +670,6 @@ if login():  # If logged in, show the rest of the app
                             df[new_column_name] = np.nan  # 기본적으로 NaN으로 채움
                             st.markdown(f"코딩 결과가 저장될 열: **{new_column_name}**", unsafe_allow_html=True)
 
-
                     def add_condition_ui(code):
                         """조건 설정 UI 생성 함수"""
                         st.divider()
@@ -688,12 +691,25 @@ if login():  # If logged in, show the rest of the app
                         for idx, cond in enumerate(st.session_state.conditions[code], start=1):
                             st.markdown(f"✔️ 조건 {idx}")
                             columns = st.columns([2, 2, 2, 2] if idx > 1 else [2, 2, 2])
+
+                            # For condition 2 and beyond, allow the user to select AND/OR between all previous conditions
                             if idx > 1:
+                                # Create the list of previous conditions for logic selection
+                                condition_list = [f"조건 {i}" for i in range(1, idx)]  # ['조건 1', '조건 2', ..., '조건 N-1']
+                                condition_string = ', '.join(condition_list)  # Join into a string like '조건 1, 조건 2, ...'
+                                
+                                # Define the logic options for the current condition
+                                logic_combination = [
+                                    f"AND ({condition_string})",  # AND between the previous conditions
+                                    f"OR ({condition_string})"    # OR between the previous conditions
+                                ]
+                                
                                 cond["logic"] = columns[0].selectbox(
                                     "- 논리",
-                                    options=[f"AND 조건 {idx - 1}", f"OR 조건 {idx - 1}", f"NOT 조건 {idx - 1}"],
+                                    options=logic_combination,
                                     key=f"logic_{code}_{idx}",
                                 )
+
                             cond["column"] = columns[-3].selectbox(
                                 "- 사용할 열",
                                 options=["-- 선택 --"] + df.columns.tolist(),
@@ -706,7 +722,7 @@ if login():  # If logged in, show the rest of the app
                             )
                             cond["operator"] = columns[-1].selectbox(
                                 "- 연산",
-                                options=["이상", "이하", "미만", "초과", "같음"],
+                                options=["이상", "이하", "미만", "초과", "같음", "같지 않음"],
                                 key=f"operator_{code}_{idx}",
                             )
 
@@ -725,6 +741,7 @@ if login():  # If logged in, show the rest of the app
                     # 입력된 코드 목록 표시 및 삭제 기능
                     if st.session_state.codes:
                         st.write(" ")
+                        st.write(" ")
                         st.markdown("<h5>현재 입력된 코드 목록:</h5>", unsafe_allow_html=True)
                         codes_to_keep = st.session_state.codes.copy()
                         for code_name in st.session_state.codes:
@@ -736,16 +753,17 @@ if login():  # If logged in, show the rest of the app
                                     codes_to_keep.remove(code_name)  # 리스트에서 코드 제거
                         st.session_state.codes = codes_to_keep
 
-                    # "코딩 시작" 버튼
-                    if st.button("🚀 코딩 시작"):
-                        # 삭제 후 남은 코드들로 조건 설정 시작
-                        st.session_state.remaining_codes = st.session_state.codes.copy()
-                        for code in st.session_state.remaining_codes:
-                            if code not in st.session_state.conditions:
-                                st.session_state.conditions[code] = [
-                                    {"column": None, "operator": None, "value": None, "logic": None},  # 조건 1
-                                    {"column": None, "operator": None, "value": None, "logic": "AND 조건 1"},  # 조건 2
-                                ]
+                    # 코딩 시작 버튼
+                    if st.session_state.codes:  # Only show if there is at least one code
+                        if st.button("입력 완료"):
+                            # 삭제 후 남은 코드들로 조건 설정 시작
+                            st.session_state.remaining_codes = st.session_state.codes.copy()
+                            for code in st.session_state.remaining_codes:
+                                if code not in st.session_state.conditions:
+                                    st.session_state.conditions[code] = [
+                                        {"column": None, "operator": None, "value": None, "logic": None},  # 조건 1
+                                        {"column": None, "operator": None, "value": None, "logic": "AND 조건 1"},  # 조건 2
+                                    ]
 
                     # 조건 설정 UI
                     if "remaining_codes" in st.session_state and st.session_state.remaining_codes:
@@ -759,7 +777,7 @@ if login():  # If logged in, show the rest of the app
                         fill_option = st.radio("✔️ 처리 방법을 선택해주세요:", ("전부 0으로", "전부 99로", "전부 공백으로"))
 
                         # 코딩 완료 버튼
-                        if st.button("🚀 코딩 완료"):
+                        if st.button("🚀 코딩 종료"):
                             # 데이터 프레임 복사
                             coded_df = df.copy()
 
@@ -781,13 +799,12 @@ if login():  # If logged in, show the rest of the app
                                 condition_query = []
 
                                 # 조건 변환
-                                for cond in conditions:
+                                for idx, cond in enumerate(conditions):
                                     if cond["column"] and cond["column"] != "-- 선택 --":
                                         column = cond["column"]
                                         operator = cond["operator"]
                                         value = cond["value"]
 
-                                        # 조건에 따른 Pandas 쿼리식 생성
                                         if operator == "이상":
                                             query = f"({column} >= {value})"
                                         elif operator == "이하":
@@ -798,6 +815,8 @@ if login():  # If logged in, show the rest of the app
                                             query = f"({column} > {value})"
                                         elif operator == "같음":
                                             query = f"({column} == {value})"
+                                        elif operator == "같지 않음":
+                                            query = f"({column} != {value})"
                                         else:
                                             continue
 
@@ -807,9 +826,21 @@ if login():  # If logged in, show the rest of the app
                                         condition_query.append(query)
                                         used_columns.add(column)  # 사용된 열 추가
 
-                                # 모든 조건을 조합하여 적용
+                                # 모든 조건을 조합하여 적용 (AND / OR 적용)
                                 if condition_query:
-                                    final_query = " & ".join(condition_query)
+                                    # Use 'AND' or 'OR' based on logic
+                                    final_query = None
+                                    for idx, query in enumerate(condition_query):
+                                        if idx == 0:
+                                            final_query = query
+                                        else:
+                                            logic = conditions[idx - 1]["logic"]  # Get the logic for the previous condition
+                                            if logic == f"AND 조건 {idx}":
+                                                final_query = f"({final_query}) & ({query})"  # Use & for AND
+                                            elif logic == f"OR 조건 {idx}":
+                                                final_query = f"({final_query}) | ({query})"  # Use | for OR
+
+                                    # Apply the final query to code the column
                                     coded_df.loc[coded_df.query(final_query).index, new_column_name] = code
 
                             # 결과 저장
@@ -973,6 +1004,12 @@ if login():  # If logged in, show the rest of the app
                         # Display summary statistics
                         st.dataframe(df.describe(), use_container_width=True)
 
+                    # Ensure session state initialization
+                    if "phrases_by_code" not in st.session_state:
+                        st.session_state.phrases_by_code = {}
+                    if "df" not in st.session_state:
+                        st.session_state.df = None
+
                     # 판독문 열 선택창
                     st.divider()
                     st.markdown("<h4 style='color:grey;'>판독문 텍스트 열 선택</h4>", unsafe_allow_html=True)
@@ -980,21 +1017,19 @@ if login():  # If logged in, show the rest of the app
                     columns.insert(0, "-- 선택 --")
 
                     selected_column = st.selectbox("✔️ 코딩할 판독문 텍스트 열을 선택해주세요:", options=columns)
+
+                    # 'coding' 열 추가 및 선택된 열을 세션 상태에 저장
                     if selected_column != "-- 선택 --":
-                        # 'coding' 열 추가
-                        if 'coding' not in df.columns:
-                            df['coding'] = np.nan  # 기본적으로 nan으로 채움
+                        if "coding" not in df.columns:
+                            df["coding"] = None  # 기본적으로 NaN으로 채움
+                        st.session_state.df = df  # Ensure df is stored in session state
+                        st.session_state.selected_column = selected_column  # Store selected column in session state
+                    else:
+                        st.stop()  # Stop further rendering if no column is selected
 
-                        # 선택된 열을 기반으로 작업
-                        st.session_state.df = df  # Ensure df is stored initially
-
-
-                    # Session state initialization for phrases (reset on new file upload)
-                    if 'phrases_by_code' not in st.session_state:
-                        st.session_state.phrases_by_code = {}  # Session state to hold phrases and codes
-
+                    # 판독문 코딩 UI
                     st.divider()
-                    st.header("📝 판독문 코딩", divider='rainbow')
+                    st.header("📝 판독문 코딩", divider="rainbow")
                     st.markdown(
                         """
                         <style>
@@ -1015,137 +1050,232 @@ if login():  # If logged in, show the rest of the app
                         </style>
                         <div class="custom-callout">
                             <p><strong>하단에 코드와 함께 텍스트를 입력 시, 해당 텍스트가 포함된 판독문 행은 함께 입력된 코드로 코딩이 이뤄집니다.</p>
-                            <br>
-                            <p>🔔 주의!) 먼저 입력한 코드 내용보다 뒤에 입력한 코드 내용에 높은 우선순위가 부여됩니다.</p>
-                            <div style="margin-left: 20px;">
-                            <p>- Case 1) 코드 1과 "disease1" 입력 후, 코드 2와 다시 "disease1" 입력: "disease1"이 포함된 행은 2로 코딩됩니다.</p>
-                            <p>- Case 2) 코드 1과 "disease1" 입력 후, 코드 2와 "disease2" 입력: "disease1, disease2" 모두 포함된 행은 2로 코딩됩니다.</p>
-                            </p>
+                            </div>
                         </div>
                         """,
-                        unsafe_allow_html=True
+                        unsafe_allow_html=True,
                     )
 
                     st.write(" ")
                     st.write(" ")
-                    current_code = st.text_input("▶️ 코드를 입력하고 엔터를 누르세요: (ex - 0, 1, 2)", key="code_input")
+
+                    # 입력한 코드를 처리
+                    current_code = st.text_input("▶️ 코드를 입력하세요 (ex - 0, 1, 2):", key="code_input")
 
                     if current_code:
-                        current_code = int(current_code)  # Convert to integer code
+                        try:
+                            current_code = int(current_code)
+                        except ValueError:
+                            st.error("올바른 숫자 형식의 코드를 입력해주세요.")
+                            st.stop()
 
-                        # Check if current code already exists in session state
+                        # Initialize phrases_by_code for the given code
                         if current_code not in st.session_state.phrases_by_code:
-                            st.session_state.phrases_by_code[current_code] = []  # Create a new list for this code if doesn't exist
+                            st.session_state.phrases_by_code[current_code] = []
 
-                        # Define a callback function to handle text input
-                        def add_text():
-                            if st.session_state.text_input:
-                                st.session_state.phrases_by_code[current_code].append(st.session_state.text_input)
-                                st.session_state.text_input = ""  # Reset the input field
+                        # 텍스트와 조건 입력
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            input_text = st.text_input("▶️ 텍스트를 입력하세요:", key="text_input")
+                        with col2:
+                            preceding_text = st.text_input("▶️ 제외할 선행 텍스트 조건(선택):", key="preceding_text")
 
-                        # Allow multiple text input with callback
-                        st.text_input("▶️ 텍스트를 입력하고 엔터를 누르세요:", key="text_input", on_change=add_text)
+                        if st.button("➕ 추가"):
+                            if input_text.strip():
+                                st.session_state.phrases_by_code[current_code].append(
+                                    {"text": input_text.strip(), "preceding_text": preceding_text.strip() if preceding_text else None}
+                                )
+                                st.success("텍스트 및 조건이 추가되었습니다.")
 
-                    # 4. 입력된 코딩 및 텍스트 목록 표시 및 삭제 기능 추가
+                    # 4. 현재 입력된 텍스트와 조건 표시 및 삭제 버튼 추가
                     if st.session_state.phrases_by_code:
-                        st.write(" ")
-                        st.write(" ")
-                        st.markdown("<h5>현재 입력된 코드 및 텍스트 목록 :</h5>", unsafe_allow_html=True)
+                        st.write("")
+                        st.markdown("<h4>현재 입력된 코드 및 텍스트</h4>", unsafe_allow_html=True)
                         for code, phrases in st.session_state.phrases_by_code.items():
-                            st.markdown(f"<strong><span style='color:#526E48;'>✅ 코드 {code}에 대한 텍스트:</span>", unsafe_allow_html=True)
-                            # Create a dynamic list where phrases can be deleted
-                            for phrase in phrases:
+                            st.write(f"**✅ 코드 {code}**")
+                            for idx, entry in enumerate(phrases):
+                                text = entry["text"]
+                                preceding_text = entry.get("preceding_text")  # Get preceding text or None
+
                                 col1, col2 = st.columns([4, 1])
                                 with col1:
-                                    st.markdown(f"<div style='margin-left: 20px;'><span style='color:#AB4459;'>- {phrase}</span>", unsafe_allow_html=True)
+                                    # Write text with or without preceding condition
+                                    if preceding_text:  # Include preceding condition only if it exists
+                                        st.write(f"- `{text}` ( 제외 선행 조건: `{preceding_text}` )")
+                                    else:
+                                        st.write(f"- `{text}`")
                                 with col2:
-                                    if st.button(f"삭제", key=f"delete_{code}_{phrase}"):
-                                        st.session_state.phrases_by_code[code].remove(phrase)  # Remove the phrase from the list
-                                        # Force rerun by altering a session state value
+                                    # Unique key for delete button
+                                    if st.button("삭제", key=f"delete_{code}_{idx}"):
+                                        st.session_state.phrases_by_code[code].pop(idx)
+                                        # Trigger UI update by modifying session state
                                         st.session_state["rerun_trigger"] = not st.session_state.get("rerun_trigger", False)
 
-                    # 5. 미처리 항목을 자동으로 0으로 처리 또는 다른 방식 처리
+                    # 4. 코딩 우선순위 설정 UI
                     st.divider()
-                    st.markdown("<h4 style='color:grey;'>코딩되지 않은 그 외 판독문 처리 방법</h4>", unsafe_allow_html=True)
+                    st.markdown("<h4 style='color:grey;'>코딩 우선순위 설정</h4>", unsafe_allow_html=True)
 
-                    # Use radio buttons to select between filling with 0 or missing
-                    fill_option = st.radio("✔️ 처리 방법을 선택해주세요:", ("전부 0으로", "전부 99로", "전부 공백으로"))
+                    priority_option = st.radio(
+                        "✔️ 우선순위를 선택해주세요:",
+                        ["오름차순 (낮은 코드부터)", "내림차순 (높은 코드부터)", "사용자 정의"],
+                        index=0,
+                        key="priority_option"
+                    )
 
-                    # 3. 완료 버튼 - 텍스트 입력 후 활성화
+                    custom_priority = None
+                    if priority_option == "사용자 정의":
+                        custom_priority_input = st.text_area(
+                            "📋 사용자 정의 우선순위를 쉼표로 구분하여 입력하세요 (예: 2,1,3):",
+                            key="custom_priority_input"
+                        )
+                        try:
+                            custom_priority = list(map(int, custom_priority_input.split(",")))
+                        except ValueError:
+                            st.warning("올바른 숫자 형식으로 입력해주세요.")
+
+
+                    # 5. 코딩되지 않은 항목 처리 방식 선택
                     st.divider()
-                    st.markdown("<h4 style='color:grey;'>코딩 작업 종료하기</h4>", unsafe_allow_html=True)
-                    if current_code and st.session_state.phrases_by_code[current_code]:
-                        if st.button("코딩 종료"):
-                            # Create a temporary lowercase column for matching
-                            df = st.session_state.df.copy()  # Use session_state to preserve df between runs
-                            df['lower_temp'] = df[selected_column].str.lower()
+                    st.markdown("<h4 style='color:grey;'>코딩되지 않은 항목 처리 방법</h4>", unsafe_allow_html=True)
+                    fill_option = st.radio(
+                        "✔️ 처리 방법을 선택해주세요:", ["전부 0으로", "전부 99로", "전부 공백으로"], key="fill_option"
+                    )
 
-                            # Process the text for each code
-                            for code, phrases in st.session_state.phrases_by_code.items():
-                                for phrase in phrases:
-                                    # Match against the lowercase temporary column
-                                    df['coding'] = df['coding'].where(~df['lower_temp'].str.contains(phrase.lower(), na=False), code)
+                    # 6. 코딩 작업 종료 및 처리
+                    st.divider()
+                    st.markdown("<h4 style='color:grey;'>코딩 결과</h4>", unsafe_allow_html=True)
 
-                            # Apply the appropriate fill method based on the radio selection
-                            if fill_option == "전부 0으로":
-                                df['coding'].fillna(0, inplace=True)
-                            elif fill_option == "전부 99로":
-                                df['coding'].fillna(99, inplace=True)
-                            elif fill_option == "전부 공백":
-                                df['coding'].fillna(np.nan, inplace=True)
+                    # 코딩 종료 버튼을 클릭하면 실행되는 코드
+                    if st.button("🚀 코딩 종료"):
+                        # Ensure DataFrame exists in session state
+                        if "df" not in st.session_state or st.session_state.df is None:
+                            st.error("데이터가 로드되지 않았습니다. 데이터를 업로드해주세요.")
+                            st.stop()
 
-                            # Drop the temporary column after coding
-                            df.drop(columns=['lower_temp'], inplace=True)
+                        df = st.session_state.df.copy()
 
-                            # Store the coded DataFrame in session state
-                            st.session_state.coded_df = df
+                        # Ensure selected_column is set
+                        if "selected_column" not in locals() or selected_column not in df.columns:
+                            st.error("코딩할 열을 선택해주세요.")
+                            st.stop()
 
-                            with st.spinner("Loading..."):
-                                time.sleep(5)  # Simulate loading time
+                        # Initialize a new column to store the coding reason
+                        df["coding_reason"] = ""
 
-                            # Display coding result
-                            st.success("코딩이 완료되었습니다. 결과를 확인하세요.", icon="✅")
-                            st.dataframe(st.session_state.coded_df, use_container_width=True)
+                        # Normalize column data
+                        df[selected_column] = df[selected_column].fillna("").astype(str).str.lower()
 
-                        # 6. 데이터 다운로드 버튼 (Excel 또는 CSV)
-                        if st.session_state.coded_df is not None:
-                            st.divider()
-                            st.markdown("<h4 style='color:grey;'>코딩 데이터 다운로드</h4>", unsafe_allow_html=True)
-                            export_format = st.radio("✔️ 파일 형식을 선택해주세요:", options=["CSV", "Excel"])
-                            if export_format == "CSV":
-                                csv = st.session_state.coded_df.to_csv(index=False).encode('utf-8')
-                                st.download_button(
-                                    label="CSV 다운로드",
-                                    data=csv,
-                                    file_name="coded_data.csv",
-                                    mime='text/csv'
-                                )
-                            elif export_format == "Excel":
-                                buffer = BytesIO()
-                                try:
-                                    # Use ExcelWriter with openpyxl
-                                    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                                        st.session_state.coded_df.to_excel(writer, index=False)
+                        # Sort phrases based on priority option
+                        if priority_option == "오름차순 (낮은 코드부터)":
+                            sorted_phrases = sorted(st.session_state.phrases_by_code.items(), key=lambda x: x[0], reverse=True)
+                        elif priority_option == "내림차순 (높은 코드부터)":
+                            sorted_phrases = sorted(st.session_state.phrases_by_code.items(), key=lambda x: x[0], reverse=False)
+                        elif priority_option == "사용자 정의" and custom_priority:
+                            # Map custom priority
+                            priority_map = {code: idx for idx, code in enumerate(custom_priority)}
+                            sorted_phrases = sorted(
+                                st.session_state.phrases_by_code.items(),
+                                key=lambda x: priority_map.get(x[0], float("inf")), reverse=True
+                            )
+                        else:
+                            sorted_phrases = sorted(st.session_state.phrases_by_code.items(), key=lambda x: x[0], reverse=True)
 
-                                    # Move the buffer's position back to the start
-                                    buffer.seek(0)
+                        # Process codes in sorted order
+                        for code, phrases in sorted_phrases:
+                            for entry in phrases:
+                                # Retrieve 'text' and 'preceding_text'
+                                text = entry.get("text", "").strip().lower()
+                                preceding_text = entry.get("preceding_text", "").strip().lower() if entry.get("preceding_text") else ""
 
-                                    # Offer the download button for Excel
-                                    st.download_button(
-                                        label="Excel 다운로드",
-                                        data=buffer,
-                                        file_name="coded_data.xlsx",
-                                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                                    )
-                                finally:
-                                    buffer.close()
+                                if not text:  # Skip empty text entries
+                                    continue
+
+                                # Match conditions
+                                matches_condition = df[selected_column].str.contains(text, na=False)
+
+                                # Apply preceding exclusion condition if exists
+                                if preceding_text:
+                                    exclusion_condition = df[selected_column].str.contains(fr"{preceding_text}\s*{text}", na=False)
+                                    matches_condition = matches_condition & ~exclusion_condition
+
+                                # Apply the code only if matches_condition is True
+                                df.loc[matches_condition, "coding"] = code
+
+                                # Store the reason (phrase) for the coding in the new column
+                                # Remove any backslashes before adding the reason
+                                clean_text = text.replace("\\", "")  # Remove backslashes
+                                df.loc[matches_condition, "coding_reason"] = df.loc[matches_condition, "coding_reason"] + f" ({clean_text})"
+
+                        # Handle uncoded rows based on user selection
+                        if fill_option == "전부 0으로":
+                            df["coding"].fillna(0, inplace=True)
+                        elif fill_option == "전부 99로":
+                            df["coding"].fillna(99, inplace=True)
+                        elif fill_option == "전부 공백":
+                            df["coding"].fillna(np.nan, inplace=True)
+
+                        # Store coded DataFrame in session state
+                        st.session_state.coded_df = df
+
+                        # Set coding completion flag
+                        st.session_state.coding_complete = True  # Set this flag to indicate that coding is done
+
+                        # Display processing status
+                        with st.spinner("코딩 처리 중..."):
+                            time.sleep(2)
+
+                        # Display success message and resulting DataFrame
+                        st.success("코딩이 완료되었습니다!", icon="✅")
+                        st.dataframe(st.session_state.coded_df, use_container_width=True)
+
+                    # Initialize export_format in session_state if it doesn't exist yet
+                    if "export_format" not in st.session_state:
+                        st.session_state.export_format = "CSV"  # Default value
+
+                    # 7. 데이터 다운로드
+                    if "coded_df" in st.session_state and st.session_state.get("coding_complete", False):
+                        st.divider()
+                        st.markdown("<h4 style='color:grey;'>코딩 데이터 다운로드</h4>", unsafe_allow_html=True)
+                        
+                        export_format = st.radio(
+                            "✔️ 파일 형식을 선택해주세요:",
+                            options=["CSV", "Excel"],
+                            key="export_format",
+                            index=["CSV", "Excel"].index(st.session_state.export_format)
+                        )
+
+                        # CSV 다운로드
+                        if export_format == "CSV":
+                            csv = st.session_state.coded_df.to_csv(index=False).encode("utf-8")
+                            st.download_button(
+                                label="CSV 다운로드",
+                                data=csv,
+                                file_name=f"coded_data.csv",
+                                mime="text/csv",
+                                key="csv_download_button"
+                            )
+
+                        # Excel 다운로드
+                        elif export_format == "Excel":
+                            buffer = BytesIO()
+                            with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+                                st.session_state.coded_df.to_excel(writer, index=False)
+                            buffer.seek(0)  # Reset buffer position
+                            st.download_button(
+                                label="Excel 다운로드",
+                                data=buffer,
+                                file_name=f"coded_data.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key="excel_download_button"
+                            )
 
             except Exception as e:
                 st.error(f"오류가 발생하였으므로 보고가 필요합니다, 문의해주시면 감사하겠습니다.\n: {str(e)}")
-            except ValueError as e:
-                st.error(f"오류가 발생하였으므로 보고가 필요합니다, 문의해주시면 감사하겠습니다.\n: {str(e)}")
-            except OSError as e:  # 파일 암호화 또는 해독 문제 처리
-                st.error("파일이 암호화된 것 같습니다. 파일의 암호를 푼 후 다시 시도해주세요.")
+                st.error("자세한 오류 정보: ", traceback.format_exc())  # 스택 트레이스 출력
+            # except ValueError as e:
+                # st.error(f"오류가 발생하였으므로 보고가 필요합니다, 문의해주시면 감사하겠습니다.\n: {str(e)}")
+            # except OSError as e:  # 파일 암호화 또는 해독 문제 처리
+                # st.error("파일이 암호화된 것 같습니다. 파일의 암호를 푼 후 다시 시도해주세요.")
 
     elif page == "📊 시각화":
         st.markdown(
@@ -1271,94 +1401,101 @@ if login():  # If logged in, show the rest of the app
                     </div>
                     """,
                     unsafe_allow_html=True
-                )
+                    )
 
+                    # 범주형 변수 추출 함수
+                    def get_categorical_columns(df):
+                        categorical_columns = list(df.select_dtypes(include=['object', 'category']).columns)
+                        low_cardinality_numerical = [
+                            col for col in df.select_dtypes(exclude=['object', 'category']).columns if df[col].nunique() < 5
+                        ]
+                        return categorical_columns + low_cardinality_numerical
+
+                    # 연속형 변수 선택 (고유 값이 4 이상인 연속형 변수만 필터링)
+                    def get_continuous_columns(df):
+                        available_columns = [
+                            col for col in df.select_dtypes(include=['float64', 'int64']).columns 
+                            if df[col].nunique() >= 5
+                        ]
+                        return available_columns
+
+                    # 시각화
                     st.text("")
                     st.text("")
-                    plot_type = st.radio("✔️ 그래프를 선택해주세요:", ('범주형 변수 : Barplot', '범주형 변수 : Pie chart', '연속형 변수 : Histogram', '연속형 변수 : Boxplot'))
+                    plot_type = st.radio("✔️ 그래프를 선택해주세요:", 
+                                        ('범주형 변수 : Barplot', '범주형 변수 : Pie chart', '연속형 변수 : Histogram', '연속형 변수 : Boxplot'))
                     st.text("")
 
-                    # Creating visualizations using Plotlyif plot_type == '범주형 변수 : Barplot':
-                    # Convert to categorical data if necessary
-                    # Create visualizations based on user's selection
+                    st.session_state.df = df
+
+                    # 범주형 변수 선택
+                    if plot_type in ['범주형 변수 : Barplot', '범주형 변수 : Pie chart']:
+                        categorical_columns = get_categorical_columns(df)
+                        # `-- 선택 --`을 첫 번째 항목으로 추가
+                        categorical_columns.insert(0, "-- 선택 --")  
+                        selected_categorical_column = st.selectbox("✔️ 범주형 변수 선택", categorical_columns, index=0, key="categorical_column_selection")  # Set index=0 to show "-- 선택 --"
+
+                    # 연속형 변수 선택
+                    if plot_type in ['연속형 변수 : Histogram', '연속형 변수 : Boxplot']:
+                        continuous_columns = get_continuous_columns(df)
+                        # `-- 선택 --`을 첫 번째 항목으로 추가
+                        continuous_columns.insert(0, "-- 선택 --")  
+                        selected_continuous_column = st.selectbox("✔️ 연속형 변수 선택", continuous_columns, index=0, key="continuous_column_selection")  # Set index=0 to show "-- 선택 --"
+
+                    # Creating visualizations based on user's selection
                     if plot_type:  # 사용자가 시각화 유형을 선택하면 실행
                         if plot_type == '범주형 변수 : Barplot':
-                            # Convert to categorical data if necessary
-                            columns = df.columns.tolist()
-                            columns.insert(0, "-- 선택 --")
-
-                            selected_column = st.selectbox("✔️ 열을 선택해주세요:", columns)
-                            if selected_column != "-- 선택 --":
-                                if df[selected_column].dtype != 'category':
-                                    df[selected_column] = df[selected_column].astype('category')
+                            if selected_categorical_column != "-- 선택 --":
                                 # Data preparation
-                                count_data = df[selected_column].value_counts().reset_index()
-                                count_data.columns = [selected_column, 'Count']  # Specify appropriate column names
+                                count_data = df[selected_categorical_column].value_counts().reset_index()
+                                count_data.columns = [selected_categorical_column, 'Count']  # Specify appropriate column names
                                 # Create Barplot
                                 fig = px.bar(count_data,
-                                            x=selected_column,
+                                            x=selected_categorical_column,
                                             y='Count',
-                                            labels={selected_column: selected_column, 'Count': 'Count'},
+                                            labels={selected_categorical_column: selected_categorical_column, 'Count': 'Count'},
                                             color_discrete_sequence=["#FFBDBD", "#BBDDEE"])  # Specify color
                                 st.plotly_chart(fig)
 
                         elif plot_type == '범주형 변수 : Pie chart':
-                            # Convert to categorical data if necessary
-                            columns = df.columns.tolist()
-                            columns.insert(0, "-- 선택 --")
-
-                            selected_column = st.selectbox("✔️ 열을 선택해주세요:", columns)
-                            if selected_column != "-- 선택 --":
-                                if df[selected_column].dtype != 'category':
-                                    df[selected_column] = df[selected_column].astype('category')
+                            if selected_categorical_column != "-- 선택 --":
                                 # Data preparation
-                                count_data = df[selected_column].value_counts().reset_index()
-                                count_data.columns = [selected_column, 'Count']  # Specify appropriate column names
-                                # Create Barplot
+                                count_data = df[selected_categorical_column].value_counts().reset_index()
+                                count_data.columns = [selected_categorical_column, 'Count']  # Specify appropriate column names
+                                # Create Pie chart
                                 fig = px.pie(
                                     count_data,
-                                    names=selected_column,  # Categories for the pie slices
+                                    names=selected_categorical_column,  # Categories for the pie slices
                                     values='Count',         # Values (count) for the pie slices
-                                    labels={selected_column: selected_column, 'Count': 'Count'},  # Optional: Custom labels
+                                    labels={selected_categorical_column: selected_categorical_column, 'Count': 'Count'},  # Optional: Custom labels
                                     color_discrete_sequence=["#FFBDBD", "#BBDDEE"]  # Specify color
                                 )
-
                                 # Display the plot
                                 st.plotly_chart(fig)
 
                         elif plot_type == '연속형 변수 : Histogram':
-                            # Check if the selected column is continuous
-                            columns = df.columns.tolist()
-                            columns.insert(0, "-- 선택 --")
-
-                            selected_column = st.selectbox("✔️ 열을 선택해주세요:", columns)
-                            if selected_column != "-- 선택 --":
-                                if df[selected_column].dtype in ['int64', 'float64']:
-                                    fig = ff.create_distplot([df[selected_column].dropna()], [selected_column], bin_size=0.1)
+                            if selected_continuous_column != "-- 선택 --":
+                                if df[selected_continuous_column].dtype in ['int64', 'float64']:
+                                    fig = ff.create_distplot([df[selected_continuous_column].dropna()], [selected_continuous_column], bin_size=0.1)
                                     fig.update_layout(showlegend=False)
                                     st.plotly_chart(fig)
                                 else:
                                     st.warning("Histogram은 연속형 변수에 적합합니다. 다른 열을 선택해주세요.")
 
                         elif plot_type == '연속형 변수 : Boxplot':
-                            # Check if the selected column is continuous
-                            columns = df.columns.tolist()
-                            columns.insert(0, "-- 선택 --")
-
-                            selected_column = st.selectbox("✔️ 열을 선택해주세요:", columns)
-                            if selected_column != "-- 선택 --":
-                                if df[selected_column].dtype in ['int64', 'float64']:
-                                    fig = px.box(df, x=selected_column, color_discrete_sequence=["#BBDDEE"])  # Specify color
+                            if selected_continuous_column != "-- 선택 --":
+                                if df[selected_continuous_column].dtype in ['int64', 'float64']:
+                                    fig = px.box(df, x=selected_continuous_column, color_discrete_sequence=["#BBDDEE"])  # Specify color
                                     st.plotly_chart(fig)
                                 else:
                                     st.warning("Boxplot은 연속형 변수에 적합합니다. 다른 열을 선택해주세요.")
 
                         else:
                             st.write("먼저 시각화 유형을 선택해주세요.")
-
+                            
                     st.divider()
 
-                        # Select visualization format
+                    # Select visualization format
                     st.header("📊 Multivariable 데이터 시각화", divider='rainbow')
                     st.markdown(
                     """
@@ -1385,33 +1522,48 @@ if login():  # If logged in, show the rest of the app
                     </div>
                     """,
                     unsafe_allow_html=True
-                )
+                    )
 
                     st.text("")
                     st.text("")
-                    plot_type = st.radio("✔️ 그래프를 선택해주세요:", ('범주형 변수 : Barplot', '범주형 변수 : Pie chart', '연속형 변수 : Histogram', '연속형 변수 : Boxplot', '연속형 변수: Correlation Heatmap'))
+                    # 시각화 선택
+                    plot_type = st.radio("✔️ 그래프를 선택해주세요:", 
+                                        ('범주형 변수 : Barplot', '범주형 변수 : Pie chart', '연속형 변수 : Histogram', '연속형 변수 : Boxplot', '연속형 변수: Correlation Heatmap'),
+                                        key="plot_type_selection")  # Provide a unique key
                     st.text("")
 
-                    # Creating visualizations using Plotlyif plot_type == '범주형 변수 : Barplot':
-                    # Convert to categorical data if necessary
-                    # Create visualizations based on user's selection
+                    # 범주형 변수 선택
+                    if plot_type in ['범주형 변수 : Barplot', '범주형 변수 : Pie chart']:
+                        categorical_columns = get_categorical_columns(df)
+                        # `-- 선택 --`을 첫 번째 항목으로 추가
+                        categorical_columns.insert(0, "-- 선택 --")  
+                        selected_column_1 = st.selectbox("✔️ 범주형 변수 선택", categorical_columns, index=0, key="categorical_variable")
+                        selected_column_2 = st.selectbox("✔️ 그룹열을 선택해주세요:", categorical_columns, index=0, key="group_variable")
+                        # 그룹변수는 반드시 범주형이어야 함
+                        if selected_column_2 != "-- 선택 --":
+                            if df[selected_column_2].dtype != 'category':
+                                # 자동으로 범주형으로 변환
+                                df[selected_column_2] = df[selected_column_2].astype('category')
+
+                    # 연속형 변수 선택
+                    if plot_type in ['연속형 변수 : Histogram', '연속형 변수 : Boxplot']:
+                        continuous_columns = get_continuous_columns(df)
+                        # `-- 선택 --`을 첫 번째 항목으로 추가
+                        continuous_columns.insert(0, "-- 선택 --")  
+                        selected_column_1 = st.selectbox("✔️ 연속형 변수 선택", continuous_columns, index=0, key="continuous_variable")
+                        selected_column_2 = st.selectbox("✔️ 그룹열을 선택해주세요:", categorical_columns, index=0, key="group_variable")
+
+                        # 그룹변수는 반드시 범주형이어야 함
+                        if selected_column_2 != "-- 선택 --":
+                            if df[selected_column_2].dtype != 'category':
+                                # 자동으로 범주형으로 변환
+                                df[selected_column_2] = df[selected_column_2].astype('category')
+
+                    # Creating visualizations based on user's selection
                     if plot_type:  # 사용자가 시각화 유형을 선택하면 실행
                         if plot_type == '범주형 변수 : Barplot':
-                            # Convert to categorical data if necessary
-                            columns = df.columns.tolist()
-                            columns.insert(0, "-- 선택 --")
-                            selected_column_1 = st.selectbox("✔️ 열을 선택해주세요:", columns, key='categorical_variable')
-                            selected_column_2 = st.selectbox("✔️ 그룹열을 선택해주세요:", columns, key='group_variable')
-
-                            if selected_column_1 != "-- 선택 --":
-                                if df[selected_column_1].dtype != 'category':
-                                    df[selected_column_1] = df[selected_column_1].astype('category')
-                            if selected_column_2 != "-- 선택 --":
-                                if df[selected_column_2].dtype != 'category':
-                                    df[selected_column_2] = df[selected_column_2].astype('category')
-
-                                # Create Barplot
-                                    # Data preparation: Group by selected_column_2 and count selected_column_1
+                            if selected_column_1 != "-- 선택 --" and selected_column_2 != "-- 선택 --":
+                                # Data preparation: Group by selected_column_2 and count selected_column_1
                                 count_data = df.groupby([selected_column_2, selected_column_1]).size().reset_index(name='Count')
                                 count_data = count_data.sort_values(by=selected_column_2)
 
@@ -1426,19 +1578,10 @@ if login():  # If logged in, show the rest of the app
                                     color_discrete_sequence=px.colors.qualitative.Set2  # Use a qualitative color palette
                                 )
 
-                                # Hide the legend
-                                fig.update_layout(showlegend=True)  # Hides the legend
-
                                 # Display the plot
                                 st.plotly_chart(fig)
 
                         elif plot_type == '범주형 변수 : Pie chart':
-                            # Convert to categorical data if necessary
-                            columns = df.columns.tolist()
-                            columns.insert(0, "-- 선택 --")
-                            selected_column_1 = st.selectbox("✔️ 열을 선택해주세요:", columns, key='categorical_variable')
-                            selected_column_2 = st.selectbox("✔️ 그룹열을 선택해주세요:", columns, key='group_variable')
-
                             if selected_column_1 != "-- 선택 --" and selected_column_2 != "-- 선택 --":
                                 # Data preparation: Group by selected_column_2 and count selected_column_1
                                 count_data = df.groupby([selected_column_2, selected_column_1]).size().reset_index(name='Count')
@@ -1464,12 +1607,6 @@ if login():  # If logged in, show the rest of the app
                                     st.plotly_chart(fig)
 
                         elif plot_type == '연속형 변수 : Histogram':
-                            # Check if the selected column is continuous
-                            columns = df.columns.tolist()
-                            columns.insert(0, "-- 선택 --")
-                            selected_column_1 = st.selectbox("✔️ 열을 선택해주세요:", columns, key='continuous_variable')
-                            selected_column_2 = st.selectbox("✔️ 그룹열을 선택해주세요:", columns, key='group_variable')
-
                             if selected_column_1 != "-- 선택 --" and selected_column_2 != "-- 선택 --":
                                 # Check if selected_column_1 is continuous
                                 if df[selected_column_1].dtype in ['int64', 'float64']:
@@ -1497,12 +1634,6 @@ if login():  # If logged in, show the rest of the app
                                     st.warning("Histogram은 연속형 변수에 적합합니다. 다른 열을 선택해주세요:")
 
                         elif plot_type == '연속형 변수 : Boxplot':
-                            # Check if the selected column is continuous
-                            columns = df.columns.tolist()
-                            columns.insert(0, "-- 선택 --")
-                            selected_column_1 = st.selectbox("✔️ 열을 선택해주세요:", columns, key='continuous_variable')
-                            selected_column_2 = st.selectbox("✔️ 그룹열을 선택해주세요:", columns, key='group_variable')
-
                             if selected_column_1 != "-- 선택 --" and selected_column_2 != "-- 선택 --":
                                 # Check if selected_column_1 is continuous
                                 if df[selected_column_1].dtype in ['int64', 'float64']:
@@ -1533,8 +1664,10 @@ if login():  # If logged in, show the rest of the app
                                     st.warning("Boxplot은 연속형 변수에 적합합니다. 다른 열을 선택해주세요:")
 
                         elif plot_type == '연속형 변수: Correlation Heatmap':
-                            # Select numerical columns for correlation
-                            numeric_columns = [col for col in df.select_dtypes(include=['int64', 'float64']).columns if df[col].nunique() > 10]
+                            # For correlation heatmap, we don't need a group variable
+                            # Filter numerical columns with > 5 unique values
+                            numeric_columns = [col for col in df.select_dtypes(include=['int64', 'float64']).columns if df[col].nunique() >= 5]
+                            
                             if len(numeric_columns) > 1:
                                 st.warning("히트맵은 연속형 변수만 이용 가능합니다. \n 고유 값이 10개 이하인 변수는 범주형 변수로 간주하여 자동 제외됩니다.", icon="🚨")
                                 corr = df[numeric_columns].corr()
@@ -1544,9 +1677,8 @@ if login():  # If logged in, show the rest of the app
                                 st.plotly_chart(fig)
                             else:
                                 st.warning("히트맵을 구현할 연속형 변수가 충분하지 않습니다.")
-
                         else:
-                            st.write("먼저 시각화 유형을 선택해주세요:")
+                            st.write("먼저 시각화 유형을 선택해주세요.")
 
             except Exception as e:
                 st.error(f"오류가 발생하였으므로 보고가 필요합니다, 문의해주시면 감사하겠습니다.\n: {str(e)}")
@@ -2288,9 +2420,16 @@ if login():  # If logged in, show the rest of the app
                         return categorical_columns + low_cardinality_numerical
 
                     # 연속형 변수 선택
+                    # 고유 값이 4 이상인 연속형 변수만 필터링
+                    available_columns = [
+                        col for col in df.select_dtypes(include=['float64', 'int64']).columns 
+                        if df[col].nunique() >= 5
+                    ]
+
+                    # multiselect로 연속형 변수 선택
                     continuous_columns = st.multiselect(
                         "✔️ 연속형 변수를 선택해주세요:",
-                        df.select_dtypes(include=['float64', 'int64']).columns,
+                        available_columns,  # 고유 값이 4 이상인 열만 표시
                         key="continuous_columns_selection"
                     )
 
@@ -2305,7 +2444,7 @@ if login():  # If logged in, show the rest of the app
                     st.session_state.X_columns = continuous_columns + categorical_columns
 
                     # 선택 완료 버튼
-                    if st.button('🚀 선택 완료', key='complete_button'):
+                    if st.button('선택 완료', key='complete_button'):
                         if len(continuous_columns) + len(categorical_columns) > 1:
                             st.session_state.continuous_columns = continuous_columns
                             st.session_state.categorical_columns = categorical_columns
@@ -2528,7 +2667,7 @@ if login():  # If logged in, show the rest of the app
                                 return fig
 
                             # Graph rendering
-                            regenerate_layout_clicked = st.button("Figure 생성", key="regenerate_causal_layout_button")
+                            regenerate_layout_clicked = st.button("🚀 Figure 생성", key="regenerate_causal_layout_button")
 
                             if regenerate_layout_clicked or not st.session_state.causal_graph_rendered:
                                 if regenerate_layout_clicked:
@@ -2538,7 +2677,6 @@ if login():  # If logged in, show the rest of the app
                                 st.plotly_chart(fig, use_container_width=True, key=f"plotly_chart_causal_{st.session_state.random_seed}")
                                 st.session_state.causal_graph_rendered = True
 
-                            # Header for causal inference
                         if st.session_state.get("causal_inference_ready", False):
                             st.divider()
                             st.header("♻️ 인과관계 추론 with Simple Rule", divider="rainbow")
@@ -2688,9 +2826,9 @@ if login():  # If logged in, show the rest of the app
                                 )
 
                                 return fig
-
+    
                             # Render the filtered causal graph
-                            regenerate_layout_clicked = st.button("Simple Rule Figure 생성", key="regenerate_simple_rule_layout_button")
+                            regenerate_layout_clicked = st.button("🚀 Simple Rule Figure 생성", key="regenerate_simple_rule_layout_button")
 
                             if regenerate_layout_clicked:
                                 if len(excluded_edges) > 0:  # Check if any edges are excluded
@@ -2875,7 +3013,7 @@ if login():  # If logged in, show the rest of the app
                         st.session_state.X_columns = continuous_columns + categorical_columns
 
                         # Add a button to confirm the selections
-                        if st.button('🚀 선택 완료', key='complete_button'):
+                        if st.button('선택 완료', key='complete_button'):
                             if y_column and (continuous_columns or categorical_columns):  # Ensure that y and at least one X is selected
                                 st.session_state.y_column = y_column
                                 st.session_state.continuous_columns = continuous_columns
@@ -2912,43 +3050,47 @@ if login():  # If logged in, show the rest of the app
                             continuous_missing = X_continuous.isnull().any().any()
                             categorical_missing = X_categorical.isnull().any().any()
 
+                            # 결측이 없으면 분석이 가능하다는 메시지를 띄움
                             if not continuous_missing and not categorical_missing:
                                 st.success("결측 처리 작업 없이 분석이 가능합니다.", icon="✅")
-                                st.session_state.logit_ready = True
+                                st.session_state.logit_ready = True  # 데이터가 준비된 상태로 설정
                             else:
-                                # Missing value handling
-                                continuous_missing_value_strategies = {}
-                                categorical_missing_value_strategies = {}
+                                st.session_state.logit_ready = False  # 결측이 있으면 logit_ready를 False로 설정
 
-                                # Continuous variables
-                                for column in st.session_state.continuous_columns:
-                                    missing_count = df[column].isna().sum()
-                                    if missing_count > 0:
-                                        st.error(f"선택하신 범주형 변수 '{column}'에 결측치 {missing_count}개가 있습니다.", icon="⛔")
-                                        strategy = st.selectbox(
-                                            f"✔️ '{column}'의 결측 처리 방법을 선택해주세요:",
-                                            ['-- 선택 --', '결측이 존재하는 행을 제거', '해당 열의 평균값으로 대체', '해당 열의 중앙값으로 대체', '해당 열의 최빈값으로 대체'],
-                                            key=f"continuous_{column}_strategy"
-                                        )
-                                        if strategy != '-- 선택 --':
-                                            continuous_missing_value_strategies[column] = strategy
+                            # 결측 처리 로직
+                            continuous_missing_value_strategies = {}
+                            categorical_missing_value_strategies = {}
 
-                                # Categorical variables
-                                for column in st.session_state.categorical_columns:
-                                    missing_count = df[column].isna().sum()
-                                    if missing_count > 0:
-                                        st.error(f"선택하신 범주형 변수 '{column}'에 결측치 {missing_count}개가 있습니다.", icon="⛔")
-                                        strategy = st.selectbox(
-                                            f"✔️ '{column}'의 결측 처리 방법을 선택해주세요:",
-                                            ['-- 선택 --', '결측이 존재하는 행을 제거', '해당 열의 최빈값으로 대체'],
-                                            key=f"categorical_{column}_strategy"
-                                        )
-                                        if strategy != '-- 선택 --':
-                                            categorical_missing_value_strategies[column] = strategy
+                            # 연속형 변수 결측 처리
+                            for column in st.session_state.continuous_columns:
+                                missing_count = df[column].isna().sum()
+                                if missing_count > 0:
+                                    st.error(f"선택하신 연속형 변수 '{column}'에 결측치 {missing_count}개가 있습니다.", icon="⛔")
+                                    strategy = st.selectbox(
+                                        f"✔️ '{column}'의 결측 처리 방법을 선택해주세요:",
+                                        ['-- 선택 --', '결측이 존재하는 행을 제거', '해당 열의 평균값으로 대체', '해당 열의 중앙값으로 대체', '해당 열의 최빈값으로 대체'],
+                                        key=f"continuous_{column}_strategy"
+                                    )
+                                    if strategy != '-- 선택 --':
+                                        continuous_missing_value_strategies[column] = strategy
 
-                                # Apply missing value handling and add "분석 시작" button
-                                if st.button("🚀 분석 시작"):
-                                    # Process continuous variables
+                            # 범주형 변수 결측 처리
+                            for column in st.session_state.categorical_columns:
+                                missing_count = df[column].isna().sum()
+                                if missing_count > 0:
+                                    st.error(f"선택하신 범주형 변수 '{column}'에 결측치 {missing_count}개가 있습니다.", icon="⛔")
+                                    strategy = st.selectbox(
+                                        f"✔️ '{column}'의 결측 처리 방법을 선택해주세요:",
+                                        ['-- 선택 --', '결측이 존재하는 행을 제거', '해당 열의 최빈값으로 대체'],
+                                        key=f"categorical_{column}_strategy"
+                                    )
+                                    if strategy != '-- 선택 --':
+                                        categorical_missing_value_strategies[column] = strategy
+
+                            # "분석 시작" 버튼을 항상 표시
+                            if st.button("🚀 분석 시작"):
+                                if continuous_missing_value_strategies or categorical_missing_value_strategies:
+                                    # 연속형 변수 결측 처리
                                     for column, strategy in continuous_missing_value_strategies.items():
                                         if strategy == '결측이 존재하는 행을 제거':
                                             X_continuous = X_continuous.dropna(subset=[column])
@@ -2961,33 +3103,43 @@ if login():  # If logged in, show the rest of the app
                                             imputer = SimpleImputer(strategy=impute_strategy)
                                             X_continuous[[column]] = imputer.fit_transform(X_continuous[[column]])
 
-                                    # Process categorical variables
+                                    # 범주형 변수 결측 처리
                                     for column, strategy in categorical_missing_value_strategies.items():
                                         if strategy == '결측이 존재하는 행을 제거':
+                                            # Drop rows with missing values in the column
                                             X_categorical = X_categorical.dropna(subset=[column])
                                         elif strategy == '해당 열의 최빈값으로 대체':
+                                            # Ensure the column is of categorical type (optional, depending on your data)
+                                            if X_categorical[column].dtype not in ['category', 'object']:
+                                                X_categorical[column] = X_categorical[column].astype('category')
+                                            
+                                            # Impute the most frequent value
                                             imputer = SimpleImputer(strategy='most_frequent')
                                             X_categorical[[column]] = imputer.fit_transform(X_categorical[[column]])
 
-                                    # Synchronize indexes
+                                    # 인덱스를 동기화
                                     shared_indexes = X_continuous.index.intersection(X_categorical.index)
                                     X_continuous = X_continuous.loc[shared_indexes]
                                     X_categorical = X_categorical.loc[shared_indexes]
                                     y = y.loc[shared_indexes]
 
-                                    # 갱신된 데이터 상태를 session_state에 저장
+                                    # session_state에 갱신된 데이터 저장
                                     st.session_state.X_continuous = X_continuous
                                     st.session_state.X_categorical = X_categorical
                                     st.session_state.y = y
-                                    st.session_state.logit_ready = True  # Flag to indicate that data is ready for modeling
+                                    st.session_state.logit_ready = True  # 데이터 준비 완료로 설정
 
                                     # 디버깅용 출력
                                     st.success("결측값 처리가 완료되었습니다. 분석을 진행하세요.", icon="✅")
+                                else:
+                                    # 결측값이 없을 때 처리 완료 문구를 출력하지 않음
+                                    st.session_state.logit_ready = True  # 데이터 준비 완료로 설정
+                                    # st.success("결측 처리 작업 없이 분석이 가능합니다.", icon="✅")
 
                                 # 분석 시작 버튼이 눌린 경우
                                 if st.session_state.get("logit_ready", False):
                                     st.divider()
-                                    st.header('💻 로지스틱 회귀분석 결과', divider='rainbow')
+                                    st.header('💻 Logistic Regression 결과', divider='rainbow')
 
                                     # 갱신된 데이터를 session_state에서 불러오기
                                     X_continuous = st.session_state.X_continuous
@@ -3059,7 +3211,7 @@ if login():  # If logged in, show the rest of the app
 
                                             st.write(" ")
                                             st.write(" ")
-                                            st.header("💻 분석결과 Figure", divider='rainbow')
+                                            st.header("💻 Logistic Regression Figures", divider='rainbow')
                                             # AUC Curve
                                             fpr, tpr, _ = roc_curve(y_test, y_pred_prob)
                                             roc_auc = auc(fpr, tpr)
@@ -3407,7 +3559,7 @@ if login():  # If logged in, show the rest of the app
                         st.dataframe(event_table, use_container_width=True)
 
                         st.write(" ")
-                        st.header("💻 분석결과 Figure", divider='rainbow')
+                        st.header("💻 Kaplan-Meier Curve", divider='rainbow')
 
                         # Kaplan-Meier 생존 곡선
                         plt.figure(figsize=(10, 6))
@@ -3549,13 +3701,16 @@ if login():  # If logged in, show the rest of the app
                             return categorical_columns + low_cardinality_numerical
 
                         # UI for variable selection
-                        st.header("💻 Cox Proportional Hazard Model", divider='rainbow')
+                        st.header("💻 Cox Proportional Hazard Modeling", divider='rainbow')
                         st.markdown("<h4 style='color:grey;'>변수 선택</h4>", unsafe_allow_html=True)
 
                         # 연속형 변수 선택 (제외된 열 제외)
                         continuous_columns = st.multiselect(
                             "✔️ 연속형 변수를 선택해주세요:",
-                            [col for col in df.select_dtypes(include=['float64', 'int64']).columns if col not in excluded_columns],
+                            [
+                                col for col in df.select_dtypes(include=['float64', 'int64']).columns 
+                                if col not in excluded_columns and df[col].nunique() >= 5
+                            ],
                             key="continuous_columns_selection"
                         )
 
@@ -3567,7 +3722,7 @@ if login():  # If logged in, show the rest of the app
                         )
 
                         # 선택 완료 버튼
-                        if st.button('🚀 선택 완료', key='complete_button'):
+                        if st.button('선택 완료', key='complete_button'):
                             if len(continuous_columns) + len(categorical_columns) > 1:
                                 st.session_state.continuous_columns = continuous_columns
                                 st.session_state.categorical_columns = categorical_columns
@@ -3593,9 +3748,7 @@ if login():  # If logged in, show the rest of the app
                                 st.success("결측 처리 작업 없이 분석이 가능합니다.", icon="✅")
                                 st.session_state.survival_ready = True  # 바로 분석 준비 완료
                             else:
-                                st.warning("결측값 처리가 필요합니다.", icon="⚠️")
-                                
-                                # 결측 처리 로직
+                                # 결측 처리: 연속형 변수 결측 처리
                                 continuous_missing_value_strategies = {}
                                 categorical_missing_value_strategies = {}
 
@@ -3625,8 +3778,8 @@ if login():  # If logged in, show the rest of the app
                                         if strategy != '-- 선택 --':
                                             categorical_missing_value_strategies[column] = strategy
 
-                                # Step 4: 결측 처리 버튼
-                                if st.button("결측 처리"):
+                                # Step 4: 결측 처리 로직 - 모델 학습 시작 버튼을 누르면 실행
+                                if continuous_missing_value_strategies or categorical_missing_value_strategies:
                                     # 연속형 변수 결측 처리
                                     for column, strategy in continuous_missing_value_strategies.items():
                                         if strategy == '결측이 존재하는 행을 제거':
@@ -3653,16 +3806,15 @@ if login():  # If logged in, show the rest of the app
                                     X_continuous = X_continuous.loc[shared_indexes]
                                     X_categorical = X_categorical.loc[shared_indexes]
 
-                                    st.success("결측값 처리가 완료되었습니다. 분석을 진행하세요.", icon="✅")
-                                    st.session_state.survival_ready = True
+                                st.session_state.survival_ready = True  # 데이터 준비 완료로 설정
 
                             # Step 6: 모델 학습 시작 버튼
                             if st.session_state.get("survival_ready", False) and st.button('🚀 모델 학습 시작', key='train_model_button'):
                                 st.divider()
 
-                                # Fit the Cox Proportional Hazards Model
+                                # 결측 처리 및 모델 학습
                                 try:
-                                    # Handle categorical variables
+                                    # Handle categorical variables (e.g., converting categories to dummy variables)
                                     X_categorical = pd.get_dummies(X_categorical, drop_first=True)
 
                                     # Check and handle boolean columns if they exist
@@ -3729,7 +3881,7 @@ if login():  # If logged in, show the rest of the app
 
                                     st.write(" ")
                                     st.write(" ")
-                                    st.header("💻 분석결과 Figure", divider='rainbow')
+                                    st.header("💻 Kaplan-Meier Curve", divider='rainbow')
 
                                     # ROC Curve
                                     fpr, tpr, _ = roc_curve(y_test, predicted_probs)
