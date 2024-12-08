@@ -3577,7 +3577,7 @@ if login():  # If logged in, show the rest of the app
                         excluded_columns = ["baseline_date", duration_column, event_column]
 
                         km_cat_column = st.selectbox(
-                            "✔️ KM Curve를 그룹별로 확인할 그룹열 변수를 선택해주세요:"",
+                            "✔️ KM Curve를 그룹별로 확인할 그룹열 변수를 선택해주세요:",
                             options=["-- 선택 --"] + [col for col in df.columns if col not in excluded_columns and df[col].nunique() < 10],
                             index=0,
                             key="km_cat_column"
