@@ -635,7 +635,7 @@ if login():  # If logged in, show the rest of the app
                         }
                         </style>
                         <div class="custom-callout">
-                            <p><strong>하단에 생성할 코딩 열의 이름을 입력 후, 조건을 입력하면 코딩이 이뤄집니다. 조건에 포함되지 않는 경우, 0으로 코딩됩니다.</strong></p>
+                            <p><strong>하단에 생성할 코딩 열의 이름을 입력 후, 조건을 입력하면 코딩이 이뤄집니다.</strong></p>
                             <p>🔔 주의!) 간단한 코딩 기능만을 제공하므로, 그외의 코딩이 필요하신 경우 문의를 부탁드립니다.</p>
                         </div>
                         """,
@@ -729,16 +729,14 @@ if login():  # If logged in, show the rest of the app
                             )
 
                     # UI 구성
-                    new_code_name = st.number_input("▶️ 추가할 코드를 입력하세요:", min_value=0, max_value=100, step=1, format="%d")
-                    if st.button("코드 추가"):  # 확인 버튼 추가
-                        if new_code_name:  # 입력된 코드가 있는지 확인
+                    new_code_name = st.number_input("▶️ 추가할 코드를 입력하세요 (ex. 0, 1, 2 등):", min_value=0, max_value=1000, step=1, format="%d", value=999)
+                    if st.button("➕ 추가"):  # 확인 버튼 추가
+                        if new_code_name != 999:  # 입력된 코드가 있는지 확인
                             if new_code_name not in st.session_state.codes:
                                 st.session_state.codes.append(new_code_name)
                                 st.success(f"코드 {new_code_name}가 추가되었습니다!")
                             else:
                                 st.warning(f"코드 {new_code_name}는 이미 추가되어 있습니다.")
-                        else:
-                            st.warning("코드 이름을 입력하세요.")
 
                     # 입력된 코드 목록 표시 및 삭제 기능
                     if st.session_state.codes:
@@ -1061,57 +1059,79 @@ if login():  # If logged in, show the rest of the app
                     st.write(" ")
                     st.write(" ")
 
-                    # 입력한 코드를 처리
-                    current_code = st.number_input("▶️ 추가할 코드를 입력하세요:", min_value=0, max_value=100, step=1, format="%d")
+                    # Add number input for code
+                    current_code = st.number_input(
+                        "▶️ 추가할 코드를 입력하세요 (ex. 0, 1, 2 등):",
+                        min_value=0, max_value=1000, step=1, format="%d", value=999
+                    )
 
-                    if current_code:
+                    if current_code != 999:
                         try:
                             current_code = int(current_code)
                         except ValueError:
-                            # st.error("올바른 숫자 형식의 코드를 입력해주세요.")
                             st.stop()
 
                         # Initialize phrases_by_code for the given code
                         if current_code not in st.session_state.phrases_by_code:
                             st.session_state.phrases_by_code[current_code] = []
 
-                        # 텍스트와 조건 입력
+                        # Input for text and condition
                         col1, col2 = st.columns(2)
                         with col1:
-                            input_text = st.text_input("▶️ 텍스트를 입력하세요:", key="text_input")
+                            input_text = st.text_input("▶️ 텍스트를 입력하세요:", key=f"text_input_{current_code}")
                         with col2:
-                            preceding_text = st.text_input("▶️ 제외할 선행 텍스트 조건(선택):", key="preceding_text")
+                            preceding_text = st.text_input("▶️ 제외할 선행 텍스트 조건(선택):", key=f"preceding_text_{current_code}")
 
-                        if st.button("➕ 추가"):
+                        # Add button to store text and conditions
+                        if st.button("➕ 추가", key=f"add_button_{current_code}"):
                             if input_text.strip():
-                                st.session_state.phrases_by_code[current_code].append(
-                                    {"text": input_text.strip(), "preceding_text": preceding_text.strip() if preceding_text else None}
-                                )
-                                st.success("텍스트 및 조건이 추가되었습니다.")
+                                # Check for duplicate text in the current code
+                                existing_texts = [entry["text"] for entry in st.session_state.phrases_by_code[current_code]]
+                                if input_text.strip() in existing_texts:
+                                    st.warning("이미 입력된 텍스트입니다.")
+                                else:
+                                    # Add the text if it's not a duplicate
+                                    st.session_state.phrases_by_code[current_code].append(
+                                        {"text": input_text.strip(), "preceding_text": preceding_text.strip() if preceding_text else None}
+                                    )
+                                    st.success("텍스트 및 조건이 추가되었습니다.")
 
-                    # 4. 현재 입력된 텍스트와 조건 표시 및 삭제 버튼 추가
+                    # Display currently stored phrases with delete functionality
                     if st.session_state.phrases_by_code:
                         st.write("")
                         st.markdown("<h4>현재 입력된 코드 및 텍스트</h4>", unsafe_allow_html=True)
+
+                        # Copy session state to filter codes
+                        updated_phrases_by_code = st.session_state.phrases_by_code.copy()
+
                         for code, phrases in st.session_state.phrases_by_code.items():
                             st.write(f"**✅ 코드 {code}**")
+                            phrases_to_keep = phrases.copy()  # Copy the current list of phrases for modification
+
                             for idx, entry in enumerate(phrases):
                                 text = entry["text"]
                                 preceding_text = entry.get("preceding_text")  # Get preceding text or None
 
                                 col1, col2 = st.columns([4, 1])
                                 with col1:
-                                    # Write text with or without preceding condition
                                     if preceding_text:  # Include preceding condition only if it exists
                                         st.write(f"- `{text}` ( 제외 선행 조건: `{preceding_text}` )")
                                     else:
                                         st.write(f"- `{text}`")
                                 with col2:
-                                    # Unique key for delete button
-                                    if st.button("삭제", key=f"delete_{code}_{idx}"):
-                                        st.session_state.phrases_by_code[code].pop(idx)
-                                        # Trigger UI update by modifying session state
-                                        st.session_state["rerun_trigger"] = not st.session_state.get("rerun_trigger", False)
+                                    # Add delete button with a unique key
+                                    if st.button(f"❌ 삭제", key=f"delete_{code}_{idx}"):
+                                        phrases_to_keep.remove(entry)  # Remove the specific entry
+
+                            # Update the modified list back to the code
+                            updated_phrases_by_code[code] = phrases_to_keep
+
+                            # If no phrases remain, remove the code entirely
+                            if not phrases_to_keep:
+                                del updated_phrases_by_code[code]
+
+                        # Update the session state
+                        st.session_state.phrases_by_code = updated_phrases_by_code
 
                     # 4. 코딩 우선순위 설정 UI
                     st.divider()
@@ -1133,7 +1153,7 @@ if login():  # If logged in, show the rest of the app
                         try:
                             custom_priority = list(map(int, custom_priority_input.split(",")))
                         except ValueError:
-                            st.warning("올바른 숫자 형식으로 입력해주세요.")
+                            st.warning("올바른 형식으로 입력해주세요.")
 
 
                     # 5. 코딩되지 않은 항목 처리 방식 선택
@@ -3146,221 +3166,231 @@ if login():  # If logged in, show the rest of the app
                                     st.divider()
                                     st.header('💻 Logistic Regression 결과', divider='rainbow')
 
-                                    # 갱신된 데이터를 session_state에서 불러오기
-                                    X_continuous = st.session_state.X_continuous
-                                    X_categorical = st.session_state.X_categorical
-                                    y = st.session_state.y
+                                    # 설명변수가 하나라도 선택되었는지 확인
+                                    if not X_continuous.empty or not X_categorical.empty:  # 하나라도 데이터가 있으면 진행
+                                        # 범주형 변수 처리
+                                        if not X_categorical.empty:
+                                            # One-Hot Encoding for categorical variables
+                                            X_categorical = pd.get_dummies(X_categorical, drop_first=True)
 
-                                    # One-Hot Encoding for categorical variables
-                                    X_categorical = pd.get_dummies(X_categorical, drop_first=True)
+                                            # Boolean 처리
+                                            for column in X_categorical.columns:
+                                                if X_categorical[column].dtype == 'bool':  # Only map if the column is of boolean type
+                                                    X_categorical[column] = X_categorical[column].map({True: 1, False: 0})
 
-                                    # Boolean 처리
-                                    for column in X_categorical.columns:
-                                        if X_categorical[column].dtype == 'bool':
-                                            X_categorical[column] = X_categorical[column].map({True: 1, False: 0})
+                                        # 연속형 변수와 범주형 변수 병합 (하나만 선택된 경우 처리)
+                                        if not X_continuous.empty and not X_categorical.empty:
+                                            # 둘 다 존재하는 경우 concat
+                                            X = pd.concat([X_continuous, X_categorical], axis=1)
+                                        elif not X_continuous.empty:
+                                            # 연속형 변수만 있는 경우
+                                            X = X_continuous.copy()
+                                        elif not X_categorical.empty:
+                                            # 범주형 변수만 있는 경우
+                                            X = X_categorical.copy()
+                                        else:
+                                            # 둘 다 비어 있는 경우는 예외 처리 (여기서 실행되지 않음)
+                                            raise ValueError("연속형 변수와 범주형 변수 중 최소 하나를 선택해야 합니다.")
 
-                                    # Combine continuous and categorical variables
-                                    X = pd.concat([X_continuous, X_categorical], axis=1)
+                                        # Ensure all columns in X are numeric
+                                        X = X.apply(pd.to_numeric, errors='coerce')
 
-                                    # Ensure all columns in X are numeric
-                                    X = X.apply(pd.to_numeric, errors='coerce')
+                                        # 결측 및 무한 값 확인
+                                        if X.isnull().values.any():
+                                            st.error("전처리 후에도 설명변수에 결측치가 남아 있습니다. 결측치 처리를 확인해주세요.")
+                                            st.dataframe(X)  # 디버깅용 데이터 출력
+                                        elif np.isinf(X).values.any():
+                                            st.error("전처리 후 설명변수에 무한 값이 존재합니다. 데이터 정규화를 확인해주세요.")
+                                            st.dataframe(X)  # 디버깅용 데이터 출력
+                                        else:
+                                            try:
+                                                # Split the data
+                                                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
-                                    # 결측 및 무한 값 확인
-                                    if X.isnull().values.any():
-                                        st.error("전처리 후에도 설명변수에 결측치가 남아 있습니다. 결측치 처리를 확인해주세요.")
-                                        st.dataframe(X)  # 디버깅용 데이터 출력
-                                    elif np.isinf(X).values.any():
-                                        st.error("전처리 후 설명변수에 무한 값이 존재합니다. 데이터 정규화를 확인해주세요.")
-                                        st.dataframe(X)  # 디버깅용 데이터 출력
-                                    else:
-                                        try:
-                                            # Split the data
-                                            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+                                                # Add constant (intercept) to the features
+                                                X_train_const = sm.add_constant(X_train)
+                                                X_test_const = sm.add_constant(X_test)
 
-                                            # Add constant (intercept) to the features
-                                            X_train_const = sm.add_constant(X_train)
-                                            X_test_const = sm.add_constant(X_test)
+                                                # Logistic regression model using statsmodels
+                                                model = sm.Logit(y_train, X_train_const)
+                                                result = model.fit()
 
-                                            # Logistic regression model using statsmodels
-                                            model = sm.Logit(y_train, X_train_const)
-                                            result = model.fit()
+                                                # Predictions
+                                                y_pred_prob = result.predict(X_test_const)
+                                                y_pred_class = (y_pred_prob >= 0.5).astype(int)
 
-                                            # Predictions
-                                            y_pred_prob = result.predict(X_test_const)
-                                            y_pred_class = (y_pred_prob >= 0.5).astype(int)
+                                                # 결과 출력
+                                                st.markdown("<h4 style='font-size:16px;'>Model OR & P-value:</h4>", unsafe_allow_html=True)
+                                                summary_table = result.summary2().tables[1]
+                                                summary_df = summary_table[['Coef.', 'P>|z|', '[0.025', '0.975]']]
 
-                                            # 결과 출력
-                                            st.markdown("<h4 style='font-size:16px;'>Model OR & P-value:</h4>", unsafe_allow_html=True)
-                                            summary_table = result.summary2().tables[1]
-                                            summary_df = summary_table[['Coef.', 'P>|z|', '[0.025', '0.975]']]
+                                                # Calculate Odds Ratio (OR) as the exponential of the coefficient
+                                                summary_df['OR'] = np.exp(summary_df['Coef.'])
+                                                summary_df['95% CI Lower'] = np.exp(summary_df['[0.025'])
+                                                summary_df['95% CI Upper'] = np.exp(summary_df['0.975]'])
 
-                                            # Calculate Odds Ratio (OR) as the exponential of the coefficient
-                                            summary_df['OR'] = np.exp(summary_df['Coef.'])
-                                            summary_df['95% CI Lower'] = np.exp(summary_df['[0.025'])
-                                            summary_df['95% CI Upper'] = np.exp(summary_df['0.975]'])
+                                                # Rename columns for clarity
+                                                summary_df = summary_df.rename(columns={'P>|z|': 'P-value'})
 
-                                            # Rename columns for clarity
-                                            summary_df = summary_df.rename(columns={'P>|z|': 'P-value'})
+                                                # Replace P-values equal to 0 with "<0.001"
+                                                summary_df['P-value'] = summary_df['P-value'].apply(lambda x: '<0.001' if x == 0 else round(x, 4))
 
-                                            # Replace P-values equal to 0 with "<0.001"
-                                            summary_df['P-value'] = summary_df['P-value'].apply(lambda x: '<0.001' if x == 0 else round(x, 4))
+                                                # Rearrange columns to include OR, Coefficient, P-value, and Confidence Interval
+                                                summary_df = summary_df[['OR', '95% CI Lower', '95% CI Upper', 'P-value']]
+                                                st.dataframe(summary_df, use_container_width=True)
 
-                                            # Rearrange columns to include OR, Coefficient, P-value, and Confidence Interval
-                                            summary_df = summary_df[['OR', '95% CI Lower', '95% CI Upper', 'P-value']]
-                                            st.dataframe(summary_df, use_container_width=True)
+                                                # Classification Report
+                                                st.markdown("<h5 style='font-size:16px;'><strong>Classification Report:</strong></h5>", unsafe_allow_html=True)
+                                                report = classification_report(y_test, y_pred_class, output_dict=True)
+                                                st.dataframe(pd.DataFrame(report).transpose(), use_container_width=True)
 
-                                            # Classification Report
-                                            st.markdown("<h5 style='font-size:16px;'><strong>Classification Report:</strong></h5>", unsafe_allow_html=True)
-                                            report = classification_report(y_test, y_pred_class, output_dict=True)
-                                            st.dataframe(pd.DataFrame(report).transpose(), use_container_width=True)
+                                                st.write(" ")
+                                                st.write(" ")
+                                                st.header("💻 Logistic Regression Figures", divider='rainbow')
+                                                # AUC Curve
+                                                fpr, tpr, _ = roc_curve(y_test, y_pred_prob)
+                                                roc_auc = auc(fpr, tpr)
 
-                                            st.write(" ")
-                                            st.write(" ")
-                                            st.header("💻 Logistic Regression Figures", divider='rainbow')
-                                            # AUC Curve
-                                            fpr, tpr, _ = roc_curve(y_test, y_pred_prob)
-                                            roc_auc = auc(fpr, tpr)
+                                                # Create a Plotly figure for ROC Curve
+                                                fig_roc = go.Figure()
 
-                                            # Create a Plotly figure for ROC Curve
-                                            fig_roc = go.Figure()
-
-                                            # Add ROC curve line
-                                            fig_roc.add_trace(go.Scatter(
-                                                x=fpr, y=tpr,
-                                                mode='lines',
-                                                name=f'ROC curve (area = {roc_auc:.2f})',
-                                                line=dict(color='darkorange', width=2)
-                                            ))
-
-                                            # Add diagonal line
-                                            fig_roc.add_trace(go.Scatter(
-                                                x=[0, 1], y=[0, 1],
-                                                mode='lines',
-                                                line=dict(color='navy', width=2, dash='dash'),
-                                                showlegend=False
-                                            ))
-
-                                            # Update layout for Plotly figure
-                                            fig_roc.update_layout(
-                                                title="ROC Curve",
-                                                xaxis_title="False Positive Rate",
-                                                yaxis_title="True Positive Rate",
-                                                legend=dict(x=0.4, y=0),
-                                                width=600, height=600  # Adjust dimensions as per your requirement
-                                            )
-
-                                            # Display the Plotly figure in Streamlit
-                                            st.plotly_chart(fig_roc)
-
-                                            # Create confusion matrix
-                                            cm = confusion_matrix(y_test, y_pred_class)
-
-                                            # Create a Plotly heatmap for confusion matrix
-                                            fig_cm = ff.create_annotated_heatmap(
-                                                z=cm,
-                                                x=['Predicted Negative', 'Predicted Positive'],
-                                                y=['Actual Negative', 'Actual Positive'],
-                                                colorscale='Blues',
-                                                showscale=False,
-                                                annotation_text=[[str(value) for value in row] for row in cm]  # Add annotations with values
-                                            )
-
-                                            # Update annotations to change font size
-                                            for annotation in fig_cm.layout.annotations:
-                                                annotation.font.size = 16  # Adjust font size
-                                                annotation.font.color = "black"  # Change font color for better contrast
-
-                                            # Update layout for the confusion matrix
-                                            fig_cm.update_layout(
-                                                title="Confusion Matrix",
-                                                width=600, height=600  # Adjust dimensions as per your requirement
-                                            )
-
-                                            # Display the Plotly heatmap in Streamlit
-                                            st.plotly_chart(fig_cm)
-
-                                            # Filter out "const" variable from the summary_df
-                                            summary_df = summary_df[~summary_df.index.str.contains('const')]
-
-                                            # Drop rows with NaN in CI or OR columns
-                                            summary_df = summary_df.dropna(subset=['95% CI Lower', '95% CI Upper', 'OR'])
-
-                                            # Calculate X-axis range (ensure CI fits and log scale works)
-                                            x_min = 0  # Set minimum to avoid log(0)
-                                            x_max = summary_df['95% CI Upper'].max()+1
-
-                                            # Apply log transformation safely
-                                            log_x_min = np.log10(x_min)
-                                            log_x_max = np.log10(x_max)
-
-                                            # Initialize the figure
-                                            fig_forest = go.Figure()
-
-                                            # Add horizontal lines for confidence intervals
-                                            for i, row in summary_df.iterrows():
-                                                # Add CI line
-                                                fig_forest.add_trace(go.Scatter(
-                                                    x=[row['95% CI Lower'], row['95% CI Upper']],
-                                                    y=[i, i],
+                                                # Add ROC curve line
+                                                fig_roc.add_trace(go.Scatter(
+                                                    x=fpr, y=tpr,
                                                     mode='lines',
-                                                    line=dict(color='gray', width=2),
+                                                    name=f'ROC curve (area = {roc_auc:.2f})',
+                                                    line=dict(color='darkorange', width=2)
+                                                ))
+
+                                                # Add diagonal line
+                                                fig_roc.add_trace(go.Scatter(
+                                                    x=[0, 1], y=[0, 1],
+                                                    mode='lines',
+                                                    line=dict(color='navy', width=2, dash='dash'),
                                                     showlegend=False
                                                 ))
 
-                                                # Add OR point
-                                                fig_forest.add_trace(go.Scatter(
-                                                    x=[row['OR']],
-                                                    y=[i],
-                                                    mode='markers',
-                                                    marker=dict(color='blue', size=7),
-                                                    showlegend=False
-                                                ))
+                                                # Update layout for Plotly figure
+                                                fig_roc.update_layout(
+                                                    title="ROC Curve",
+                                                    xaxis_title="False Positive Rate",
+                                                    yaxis_title="True Positive Rate",
+                                                    legend=dict(x=0.4, y=0),
+                                                    width=600, height=600  # Adjust dimensions as per your requirement
+                                                )
 
-                                                # Add CI end markers ("|") with thicker appearance
-                                                fig_forest.add_trace(go.Scatter(
-                                                    x=[row['95% CI Lower'], row['95% CI Upper']],
-                                                    y=[i, i],
-                                                    mode='text',
-                                                    text=["|", "|"],
-                                                    textfont=dict(size=18, color="gray", family="Arial Black"),  # Bold and larger font
-                                                    textposition="middle center",
-                                                    showlegend=False
-                                                ))
+                                                # Display the Plotly figure in Streamlit
+                                                st.plotly_chart(fig_roc)
 
-                                            # Add vertical line for OR=1
-                                            fig_forest.add_shape(
-                                                type="line",
-                                                x0=1, x1=1,
-                                                y0=-0.5, y1=len(summary_df) - 0.5,
-                                                line=dict(color="red", width=2, dash="dash")
-                                            )
+                                                # Create confusion matrix
+                                                cm = confusion_matrix(y_test, y_pred_class)
 
-                                            # Update layout for the forest plot
-                                            fig_forest.update_layout(
-                                                title="Forest Plot of Odds Ratios",
-                                                xaxis=dict(
-                                                    title="Odds Ratio",
-                                                    type="log",  # Log scale for better visualization
-                                                    range=[np.log10(x_min), np.log10(x_max)],
-                                                    zeroline=False
-                                                ),
-                                                yaxis=dict(
-                                                    title="Variables",
-                                                    tickvals=list(range(len(summary_df))),
-                                                    ticktext=summary_df.index,  # Use index names (variables) as y-axis labels
-                                                    autorange="reversed"  # Reverse Y-axis to match conventional forest plot style
-                                                ),
-                                                width=800,
-                                                height=600,
-                                                template="plotly_white"
-                                            )
+                                                # Create a Plotly heatmap for confusion matrix
+                                                fig_cm = ff.create_annotated_heatmap(
+                                                    z=cm,
+                                                    x=['Predicted Negative', 'Predicted Positive'],
+                                                    y=['Actual Negative', 'Actual Positive'],
+                                                    colorscale='Blues',
+                                                    showscale=False,
+                                                    annotation_text=[[str(value) for value in row] for row in cm]  # Add annotations with values
+                                                )
 
-                                            # Display the Plotly figure in Streamlit
-                                            st.plotly_chart(fig_forest)
+                                                # Update annotations to change font size
+                                                for annotation in fig_cm.layout.annotations:
+                                                    annotation.font.size = 16  # Adjust font size
+                                                    annotation.font.color = "black"  # Change font color for better contrast
 
-                                        except Exception as e:
-                                            st.error(f"모델 학습 중 오류가 발생했습니다.")
-                                            st.error("자세한 오류 정보: ", traceback.format_exc())  # 스택 트레이스 출력
+                                                # Update layout for the confusion matrix
+                                                fig_cm.update_layout(
+                                                    title="Confusion Matrix",
+                                                    width=600, height=600  # Adjust dimensions as per your requirement
+                                                )
+
+                                                # Display the Plotly heatmap in Streamlit
+                                                st.plotly_chart(fig_cm)
+
+                                                # Filter out "const" variable from the summary_df
+                                                summary_df = summary_df[~summary_df.index.str.contains('const')]
+
+                                                # Drop rows with NaN in CI or OR columns
+                                                summary_df = summary_df.dropna(subset=['95% CI Lower', '95% CI Upper', 'OR'])
+
+                                                # Calculate X-axis range (ensure CI fits and log scale works)
+                                                x_min = 0  # Set minimum to avoid log(0)
+                                                x_max = summary_df['95% CI Upper'].max()+1
+
+                                                # Apply log transformation safely
+                                                log_x_min = np.log10(x_min)
+                                                log_x_max = np.log10(x_max)
+
+                                                # Initialize the figure
+                                                fig_forest = go.Figure()
+
+                                                # Add horizontal lines for confidence intervals
+                                                for i, row in summary_df.iterrows():
+                                                    # Add CI line
+                                                    fig_forest.add_trace(go.Scatter(
+                                                        x=[row['95% CI Lower'], row['95% CI Upper']],
+                                                        y=[i, i],
+                                                        mode='lines',
+                                                        line=dict(color='gray', width=2),
+                                                        showlegend=False
+                                                    ))
+
+                                                    # Add OR point
+                                                    fig_forest.add_trace(go.Scatter(
+                                                        x=[row['OR']],
+                                                        y=[i],
+                                                        mode='markers',
+                                                        marker=dict(color='blue', size=7),
+                                                        showlegend=False
+                                                    ))
+
+                                                    # Add CI end markers ("|") with thicker appearance
+                                                    fig_forest.add_trace(go.Scatter(
+                                                        x=[row['95% CI Lower'], row['95% CI Upper']],
+                                                        y=[i, i],
+                                                        mode='text',
+                                                        text=["|", "|"],
+                                                        textfont=dict(size=18, color="gray", family="Arial Black"),  # Bold and larger font
+                                                        textposition="middle center",
+                                                        showlegend=False
+                                                    ))
+
+                                                # Add vertical line for OR=1
+                                                fig_forest.add_shape(
+                                                    type="line",
+                                                    x0=1, x1=1,
+                                                    y0=-0.5, y1=len(summary_df) - 0.5,
+                                                    line=dict(color="red", width=2, dash="dash")
+                                                )
+
+                                                # Update layout for the forest plot
+                                                fig_forest.update_layout(
+                                                    title="Forest Plot of Odds Ratios",
+                                                    xaxis=dict(
+                                                        title="Odds Ratio",
+                                                        type="log",  # Log scale for better visualization
+                                                        range=[np.log10(x_min), np.log10(x_max)],
+                                                        zeroline=False
+                                                    ),
+                                                    yaxis=dict(
+                                                        title="Variables",
+                                                        tickvals=list(range(len(summary_df))),
+                                                        ticktext=summary_df.index,  # Use index names (variables) as y-axis labels
+                                                        autorange="reversed"  # Reverse Y-axis to match conventional forest plot style
+                                                    ),
+                                                    width=800,
+                                                    height=600,
+                                                    template="plotly_white"
+                                                )
+
+                                                # Display the Plotly figure in Streamlit
+                                                st.plotly_chart(fig_forest)
+
+                                            except Exception as e:
+                                                st.error(f"모델 학습 중 오류가 발생했습니다.")
+                                                st.error("자세한 오류 정보: ", traceback.format_exc())  # 스택 트레이스 출력
 
             except Exception as e:
                 st.error(f"오류가 발생하였으므로 보고가 필요합니다, 문의해주시면 감사하겠습니다.\n: {str(e)}")
@@ -3699,13 +3729,13 @@ if login():  # If logged in, show the rest of the app
 
                         # 선택 완료 버튼
                         if st.button('선택 완료', key='complete_button'):
-                            if len(continuous_columns) + len(categorical_columns) > 1:
+                            if len(continuous_columns) + len(categorical_columns) > 0:
                                 st.session_state.continuous_columns = continuous_columns
                                 st.session_state.categorical_columns = categorical_columns
                                 st.session_state.proceed_to_preprocessing = True
                                 st.success("변수 선택이 완료되었습니다. 다음 단계로 진행하세요.", icon="✅")
                             else:
-                                st.warning("변수를 두 개 이상 선택하셔야 합니다.", icon="⚠️")
+                                st.warning("변수를 한 개 이상 선택하셔야 합니다.", icon="⚠️")
 
                         # 2. 전처리 단계
                         if st.session_state.get("proceed_to_preprocessing", False):
@@ -3790,19 +3820,29 @@ if login():  # If logged in, show the rest of the app
 
                                 # 결측 처리 및 모델 학습
                                 try:
-                                    # Handle categorical variables (e.g., converting categories to dummy variables)
-                                    X_categorical = pd.get_dummies(X_categorical, drop_first=True)
+                                    # 범주형 변수 처리
+                                    if not X_categorical.empty:
+                                        # Handle categorical variables (e.g., converting categories to dummy variables)
+                                        X_categorical = pd.get_dummies(X_categorical, drop_first=True)
 
-                                    # Check and handle boolean columns if they exist
-                                    for column in X_categorical.columns:
-                                        if X_categorical[column].dtype == 'bool':  # Only map if the column is of boolean type
-                                            X_categorical[column] = X_categorical[column].map({True: 1, False: 0})
+                                        # Check and handle boolean columns if they exist
+                                        for column in X_categorical.columns:
+                                            if X_categorical[column].dtype == 'bool':  # Only map if the column is of boolean type
+                                                X_categorical[column] = X_categorical[column].map({True: 1, False: 0})
 
-                                    # Ensure all columns in X_categorical are integers
-                                    X_categorical = X_categorical.astype(int, errors='ignore')
+                                        # Ensure all columns in X_categorical are integers
+                                        X_categorical = X_categorical.astype(int, errors='ignore')
 
-                                    # Combine continuous and categorical columns
-                                    X = pd.concat([X_continuous, X_categorical], axis=1)
+                                    # 연속형 변수와 범주형 변수 병합 (하나만 선택된 경우 처리)
+                                    if not X_continuous.empty and not X_categorical.empty:
+                                        # 둘 다 존재하는 경우 concat
+                                        X = pd.concat([X_continuous, X_categorical], axis=1)
+                                    elif not X_continuous.empty:
+                                        # 연속형 변수만 있는 경우
+                                        X = X_continuous.copy()
+                                    elif not X_categorical.empty:
+                                        # 범주형 변수만 있는 경우
+                                        X = X_categorical.copy()
 
                                     # Ensure that combined X does not have object or mixed types
                                     X = X.apply(pd.to_numeric, errors='coerce')
