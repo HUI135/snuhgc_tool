@@ -3554,7 +3554,7 @@ if login():  # If logged in, show the rest of the app
                     # 분석 결과 표시
                     if st.session_state.analysis_ready:
                         st.divider()
-                        st.header("💻 생존분석 결과", divider='rainbow')
+                        st.header("💻 Event Table", divider='rainbow')
 
                         # 기간 열이 존재하는 경우
                         df_to_display = df[[event_column, duration_column]]
@@ -3815,7 +3815,7 @@ if login():  # If logged in, show the rest of the app
                                 st.session_state.survival_ready = True  # 데이터 준비 완료로 설정
 
                             # Step 6: 모델 학습 시작 버튼
-                            if st.session_state.get("survival_ready", False) and st.button('🚀 모델 학습 시작', key='train_model_button'):
+                            if st.session_state.get("survival_ready", False) and st.button('🚀 분석 시작', key='train_model_button'):
                                 st.divider()
 
                                 # 결측 처리 및 모델 학습
