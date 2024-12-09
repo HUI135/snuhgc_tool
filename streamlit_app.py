@@ -2168,8 +2168,8 @@ if login():  # If logged in, show the rest of the app
                         </style>
                         <div class="custom-callout">
                             <p>- 종속변수가 결측인 행은 제외 후 count됩니다.</p>
-                            <p>- 등분산성을 갖는 연속형 변수에 Student t-검정이 사용되며, 이분산성을 갖는 연속형 변수에 Welch's t-검정이 적용됩니다.</p>
                             <p>- 범주형 변수에 Chi-square 검정이 사용됩니다.</p>
+                            <p>- 등분산성을 갖는 연속형 변수에 Student t-검정이 사용되며, 이분산성을 갖는 연속형 변수에 Welch's t-검정이 적용됩니다.</p>
 
                         </div>
                         """,
@@ -2179,7 +2179,7 @@ if login():  # If logged in, show the rest of the app
                         st.write(" ")
 
                         response_col = st.selectbox(
-                            "✔️ 통계적 유의성을 볼 종속변수를 선택해주세요:",
+                            "✔️ 통계적 유의성을 볼 종속변수(y)를 선택해주세요:",
                             options=["-- 선택 --"] + [col for col in df.columns if df[col].nunique() == 2],
                             index=0
                         )
@@ -2247,8 +2247,8 @@ if login():  # If logged in, show the rest of the app
                         </style>
                         <div class="custom-callout">
                             <p>- 종속변수가 결측인 행은 제외 후 count됩니다.</p>
-                            <p>- 등분산성을 갖는 연속형 변수에 ANOVA 검정이 사용되며, 이분산성을 갖는 연속형 변수에 Kruskal-Wallis 검정이 적용됩니다.</p>
                             <p>- 범주형 변수에 Chi-square 검정이 사용됩니다.</p>
+                            <p>- 등분산성을 갖는 연속형 변수에 ANOVA 검정이 사용되며, 이분산성을 갖는 연속형 변수에 Kruskal-Wallis 검정이 적용됩니다.</p>
 
                         </div>
                         """,
@@ -2258,7 +2258,7 @@ if login():  # If logged in, show the rest of the app
                         st.write(" ")
 
                         response_col = st.selectbox(
-                            "✔️ 통계적 유의성을 볼 종속변수를 선택해주세요:",
+                            "✔️ 통계적 유의성을 볼 종속변수(y)를 선택해주세요:",
                             options=["-- 선택 --"] + [col for col in df.columns if df[col].nunique() == 3],
                             index=0
                         )
@@ -3708,7 +3708,7 @@ if login():  # If logged in, show the rest of the app
 
                         # UI for variable selection
                         st.header("💻 Cox Proportional Hazards Modeling", divider='rainbow')
-                        st.markdown("<h4 style='color:grey;'>변수 선택</h4>", unsafe_allow_html=True)
+                        st.markdown("<h4 style='color:grey;'>☑️ 변수 선택</h4>", unsafe_allow_html=True)
 
                         # 연속형 변수 선택 (제외된 열 제외)
                         continuous_columns = st.multiselect(
