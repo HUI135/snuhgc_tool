@@ -167,8 +167,29 @@ if login():  # If logged in, show the rest of the app
         selected = st.selectbox("✔️ 사용설명서를 보실 기능을 선택해주세요:", options=["-- 선택 --", "♻️ 인과관계 추론", "📝 피봇 변환", "📝 데이터 코딩", "📝 판독문 코딩", "📊 시각화", "📊 특성표 생성", "💻 로지스틱 회귀분석", "💻 생존분석"])
         if selected == "-- 선택 --":
             st.write()
+        elif selected == "♻️ 인과관계 추론":
+            # 임베드할 링크 입력
+            # HTML iframe 태그
+            iframe_code = """
+            <iframe src="https://www.app.guideflo.com/workspace/2665/manuals/8605/embed?embedSize=fixed&isCover=true" 
+                    style="min-height:640px" 
+                    sandbox="allow-scripts allow-top-navigation-by-user-activation allow-popups allow-same-origin" 
+                    security="restricted" 
+                    title="your Step How capture" 
+                    width="100%" 
+                    height="640" 
+                    referrerpolicy="strict-origin-when-cross-origin" 
+                    frameborder="0" 
+                    webkitallowfullscreen="webkitallowfullscreen" 
+                    mozallowfullscreen="mozallowfullscreen" 
+                    allowfullscreen="allowfullscreen">
+            </iframe>
+            """
+            st.components.v1.html(iframe_code, height=640, width=700)
         elif selected == "📝 판독문 코딩":
             st.video("https://youtu.be/uE45G40TnTE")
+        else:
+            st.write("업로드 준비중입니다.")
 
     elif page == "📝 피봇 변환":
         st.markdown(
@@ -1147,7 +1168,9 @@ if login():  # If logged in, show the rest of the app
                         try:
                             custom_priority = list(map(int, custom_priority_input.split(",")))
                         except ValueError:
+                            # st.warning("올바른 형식으로 입력해주세요.")
                             st.write("")
+
 
                     # 5. 코딩되지 않은 항목 처리 방식 선택
                     st.divider()
@@ -3547,7 +3570,7 @@ if login():  # If logged in, show the rest of the app
                     # 분석 결과 표시
                     if st.session_state.analysis_ready:
                         st.divider()
-                        st.header("💻 Event Table", divider='rainbow')
+                        st.header("💻 생존분석 결과", divider='rainbow')
 
                         # 기간 열이 존재하는 경우
                         df_to_display = df[[event_column, duration_column]]
@@ -3808,7 +3831,7 @@ if login():  # If logged in, show the rest of the app
                                 st.session_state.survival_ready = True  # 데이터 준비 완료로 설정
 
                             # Step 6: 모델 학습 시작 버튼
-                            if st.session_state.get("survival_ready", False) and st.button('🚀 분석 시작', key='train_model_button'):
+                            if st.session_state.get("survival_ready", False) and st.button('🚀 모델 학습 시작', key='train_model_button'):
                                 st.divider()
 
                                 # 결측 처리 및 모델 학습
