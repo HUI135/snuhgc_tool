@@ -1061,7 +1061,7 @@ if login():  # If logged in, show the rest of the app
 
                     # Add number input for code
                     current_code = st.number_input(
-                        "▶️ 추가할 코드를 입력하세요 (ex. 0, 1, 2 등):",
+                        "▶️ 추가할 코드를 입력 후 엔터를 눌러주세요 (ex. 0, 1, 2 등):",
                         min_value=0, max_value=1000, step=1, format="%d", value=999
                     )
 
@@ -1096,42 +1096,36 @@ if login():  # If logged in, show the rest of the app
                                     )
                                     st.success("텍스트 및 조건이 추가되었습니다.")
 
-                    # Display currently stored phrases with delete functionality
+                    # 텍스트 입력 및 삭제 UI
                     if st.session_state.phrases_by_code:
-                        st.write("")
-                        st.markdown("<h4>현재 입력된 코드 및 텍스트</h4>", unsafe_allow_html=True)
-
-                        # Copy session state to filter codes
-                        updated_phrases_by_code = st.session_state.phrases_by_code.copy()
+                        st.write(" ")
+                        st.write(" ")
+                        st.markdown("<h5>현재 입력된 코드 및 텍스트:</h5>", unsafe_allow_html=True)
 
                         for code, phrases in st.session_state.phrases_by_code.items():
                             st.write(f"**✅ 코드 {code}**")
-                            phrases_to_keep = phrases.copy()  # Copy the current list of phrases for modification
 
-                            for idx, entry in enumerate(phrases):
+                            # 복사본을 사용하여 안전한 수정 처리
+                            phrases_to_keep = phrases.copy()
+
+                            for entry in phrases:
                                 text = entry["text"]
-                                preceding_text = entry.get("preceding_text")  # Get preceding text or None
+                                preceding_text = entry.get("preceding_text")  # 선행 텍스트 조건
 
                                 col1, col2 = st.columns([4, 1])
                                 with col1:
-                                    if preceding_text:  # Include preceding condition only if it exists
-                                        st.write(f"- `{text}` ( 제외 선행 조건: `{preceding_text}` )")
+                                    if preceding_text:  # 선행 텍스트 조건이 있을 경우 표시
+                                        st.markdown(f"- `{text}` ( 제외 선행 조건: `{preceding_text}` )")
                                     else:
-                                        st.write(f"- `{text}`")
+                                        st.markdown(f"- `{text}`")
                                 with col2:
-                                    # Add delete button with a unique key
-                                    if st.button(f"❌ 삭제", key=f"delete_{code}_{idx}"):
-                                        phrases_to_keep.remove(entry)  # Remove the specific entry
+                                    if st.button(f"❌ 삭제", key=f"delete_{code}_{text}"):
+                                        # 삭제할 항목을 리스트에서 제거
+                                        if entry in phrases_to_keep:
+                                            phrases_to_keep.remove(entry)
 
-                            # Update the modified list back to the code
-                            updated_phrases_by_code[code] = phrases_to_keep
-
-                            # If no phrases remain, remove the code entirely
-                            if not phrases_to_keep:
-                                del updated_phrases_by_code[code]
-
-                        # Update the session state
-                        st.session_state.phrases_by_code = updated_phrases_by_code
+                            # 삭제 후 업데이트된 리스트 저장
+                            st.session_state.phrases_by_code[code] = phrases_to_keep
 
                     # 4. 코딩 우선순위 설정 UI
                     st.divider()
@@ -1153,8 +1147,7 @@ if login():  # If logged in, show the rest of the app
                         try:
                             custom_priority = list(map(int, custom_priority_input.split(",")))
                         except ValueError:
-                            st.warning("올바른 형식으로 입력해주세요.")
-
+                            st.write("")
 
                     # 5. 코딩되지 않은 항목 처리 방식 선택
                     st.divider()
