@@ -43,6 +43,8 @@ import os
 import tempfile
 import traceback
 import re
+import logging
+from datetime import datetime
 # from causallearn.utils.GraphUtils import graph_to_adjacency_matrix
 
 # wide format
@@ -128,24 +130,114 @@ if login():  # If logged in, show the rest of the app
 
     # Page-specific content
     if page == "-- 선택 --":
-        # Checkbox for updates
-        toggle = st.checkbox("**📅 24.12.11 📅** Update 사항 자세히보기")
+        st.info("**환영합니다!** 원하시는 기능을 좌측 사이드바에서 선택해주세요.", icon="🔔")
+
+        # SendGrid API 키 및 이메일 설정
+        SENDGRID_API_KEY = "***REMOVED***6p4TQk8LSFeXLE_nq8W5pg.y3sSlucLQuAGg6JtuRJoshmhjJR49VyZKUE_PHNiHyk"
+        MY_EMAIL = "hui135@snu.ac.kr"  # 자신의 이메일 주소
+
+        # 로그 설정
+        logging.basicConfig(
+            filename="access_logs.log",
+            level=logging.INFO,
+            format="%(asctime)s - %(message)s",
+        )
+
+        # 이메일 전송 함수
+        def send_email_via_sendgrid(subject, content):
+            try:
+                email = Mail(
+                    from_email="hui135@snu.ac.kr",  # 발신자 이메일
+                    to_emails=MY_EMAIL,            # 수신자 이메일
+                    subject=subject,
+                    html_content=f"<strong>{content}</strong>"
+                )
+                sg = SendGridAPIClient(SENDGRID_API_KEY)
+                response = sg.send(email)
+                return response
+            except Exception as e:
+                st.error(f"Error sending email: {e}")
+                return None
+
+        # 사용자 접속 기록 및 이메일 알림
+        def log_and_notify_user_access():
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            session_id = st.session_state.get("session_id", "unknown")
+            log_message = f"User accessed the app - Session ID: {session_id}, Time: {timestamp}"
+            
+            # 로그 기록
+            logging.info(log_message)
+            
+            # 이메일 전송
+            subject = "Streamlit 접속 알림"
+            content = f"새로운 접속 발생:\n\n{log_message}"
+            send_email_via_sendgrid(subject, content)
+
+        # 세션 시작 시 로그 및 알림
+        if "session_id" not in st.session_state:
+            st.session_state["session_id"] = str(datetime.now().timestamp())
+            log_and_notify_user_access()
+
+        # Streamlit 앱 UI
+        # st.title("접속 로그 및 이메일 알림 테스트")
+        # st.write("이 페이지에 접속할 때 관리자가 이메일로 알림을 받습니다.")
+
+        # 이메일 전송 함수
+        def send_email_via_sendgrid(subject, content):
+            try:
+                # 이메일 구성
+                email = Mail(
+                    from_email="hui135@snu.ac.kr",  # 발신자 이메일
+                    to_emails=MY_EMAIL,                  # 수신자 이메일
+                    subject=subject,
+                    html_content=f"<strong>{content}</strong>"
+                )
+
+                # SendGrid 클라이언트를 사용하여 이메일 전송
+                sg = SendGridAPIClient(SENDGRID_API_KEY)
+                response = sg.send(email)
+                return response  # 응답 반환
+            except Exception as e:
+                st.error(f"Error: {e}")
+                return None
+                
+
+        toggle_2 = st.checkbox("🌈 추가 기능 제안")
+        
+        if toggle_2:
+            message_input = st.text_area("추가되었으면 하는 기능을 작성해주세요.", key="message_input")
+
+            # 제출 버튼 클릭 시 동작
+            if st.button("제출", key="submit_button_1"):
+                if message_input.strip() == "":  # 빈 입력 확인
+                    st.warning("제출 전 내용을 작성해주세요.")
+                else:
+                    # 이메일 전송 시도
+                    response = send_email_via_sendgrid("User Suggestion", message_input)
+
+                    if response is None:
+                        st.error("전송에 실패하였습니다.")  # 요청 오류 발생 시
+                    else:
+                        # 응답 상태 코드 확인
+                        if response.status_code == 202:  # 202는 SendGrid 성공 상태 코드
+                            st.success("성공적으로 전송되었습니다.")
+                        else:
+                            st.error(f"Send failed: {response.text}")
+                            st.write(f"Status code: {response.status_code}")    
+
+        toggle = st.checkbox("**📅 24.12.12 📅** Update 사항 자세히보기")
 
         if toggle:
             # Toggle 활성화 시 Markdown 출력
             st.markdown("""
-            ### 주요 업데이트 사항
-            - (예시) **📝 피봇 변환** : 새로운 기능 추가
-            - (예시) **📊 시각화** : 기능 추가 - 파이 차트 생성
-
-            **세부 오류 수정**
-            - (예시) 오류 수정 : `There are multiple radio elements with the same auto-generated ID`
-            - (예시) 파일을 읽는 중 오류가 발생했습니다 : `There are multiple radio elements with the same auto-generated ID`
-            - (예시) 시각화 기능 문제 : `TypeError: pie() got an unexpected keyword argument 'x'`
+            - **🔔 사용설명서** : 최종 업로드 완료
+            - **📝 피봇 변환** : 필터링 옵션 추가 - `환자별 첫번째 방문`, `환자별 마지막 방문`, `환자별 첫번째 방문과 마지막 방문`
             """)
-        else:
-            # Toggle 비활성화 시 Info 출력
-            st.info(" **환영합니다!** 좌측 사이드바에서 원하시는 기능을 선택해주세요.", icon='💡')
+        # else:
+        #     # Toggle 비활성화 시 Info 출력
+        #     st.info(" **환영합니다!** 좌측 사이드바에서 원하시는 기능을 선택해주세요.", icon='💡')
+
+
             
     elif page == "🔔 사용설명서":
         st.session_state.header_displayed = False
@@ -154,7 +246,7 @@ if login():  # If logged in, show the rest of the app
         <div style="background-color: #e9f5ff; padding: 10px; border-radius: 10px;">
             <h2 style="color: #000000;">🔔  사용설명서</h2>
             <p style="font-size:18px; color: #000000;">
-            &nbsp;&nbsp;&nbsp;&nbsp;기능 사용설명법을 영상을 통해 살펴보세요.
+            &nbsp;&nbsp;&nbsp;&nbsp;각 기능의 사용방법을 확인해보세요.
             </p>
         </div>
         """,
@@ -169,9 +261,8 @@ if login():  # If logged in, show the rest of the app
             st.write()
         elif selected == "♻️ 인과관계 추론":
             # 임베드할 링크 입력
-            # HTML iframe 태그
             iframe_code = """
-            <iframe src="https://www.app.guideflo.com/workspace/2665/manuals/8605/embed?embedSize=fixed&isCover=true" 
+            <iframe src="https://www.app.guideflo.com/workspace/2665/manuals/8605/embed?embedSize=responsive&isCover=true" 
                     style="min-height:640px" 
                     sandbox="allow-scripts allow-top-navigation-by-user-activation allow-popups allow-same-origin" 
                     security="restricted" 
@@ -185,9 +276,146 @@ if login():  # If logged in, show the rest of the app
                     allowfullscreen="allowfullscreen">
             </iframe>
             """
-            st.components.v1.html(iframe_code, height=640, width=700)
+            # Streamlit 컴포넌트로 HTML 코드 삽입
+            st.components.v1.html(iframe_code, height=700, width=1000)
+        elif selected == "📝 피봇 변환":
+            # 임베드할 링크 입력
+            iframe_code = """
+            <iframe src="https://www.app.guideflo.com/workspace/2665/manuals/8720/embed?embedSize=responsive&isCover=true" 
+                    style="min-height:640px" 
+                    sandbox="allow-scripts allow-top-navigation-by-user-activation allow-popups allow-same-origin" 
+                    security="restricted" 
+                    title="your Step How capture" 
+                    width="100%" 
+                    height="640" 
+                    referrerpolicy="strict-origin-when-cross-origin" 
+                    frameborder="0" 
+                    webkitallowfullscreen="webkitallowfullscreen" 
+                    mozallowfullscreen="mozallowfullscreen" 
+                    allowfullscreen="allowfullscreen">
+            </iframe>
+            """
+            # Streamlit 컴포넌트로 HTML 코드 삽입
+            st.components.v1.html(iframe_code, height=700, width=1000)
+        elif selected =="📝 데이터 코딩":
+            # 임베드할 링크 입력
+            iframe_code = """
+            <iframe 
+                src="https://www.app.guideflo.com/workspace/2665/manuals/8723/embed?embedSize=responsive&isCover=true" 
+                style="min-height:640px;" 
+                sandbox="allow-scripts allow-top-navigation-by-user-activation allow-popups allow-same-origin" 
+                security="restricted" 
+                title="Step-by-Step Guide" 
+                width="100%" 
+                height="100%" 
+                referrerpolicy="strict-origin-when-cross-origin" 
+                frameborder="0" 
+                webkitallowfullscreen 
+                mozallowfullscreen 
+                allowfullscreen>
+            </iframe>
+            """
+            # Streamlit 컴포넌트로 HTML 코드 삽입
+            st.components.v1.html(iframe_code, height=700, width=1000)
         elif selected == "📝 판독문 코딩":
-            st.video("https://youtu.be/uE45G40TnTE")
+            iframe_code = """
+            <iframe 
+                src="https://www.app.guideflo.com/workspace/2665/manuals/8724/embed?embedSize=responsive&isCover=true" 
+                style="min-height:640px;" 
+                sandbox="allow-scripts allow-top-navigation-by-user-activation allow-popups allow-same-origin" 
+                security="restricted" 
+                title="Step-by-Step Guide" 
+                width="100%" 
+                height="100%" 
+                referrerpolicy="strict-origin-when-cross-origin" 
+                frameborder="0" 
+                webkitallowfullscreen 
+                mozallowfullscreen 
+                allowfullscreen>
+            </iframe>
+            """
+            # Streamlit 컴포넌트로 HTML 코드 삽입
+            st.components.v1.html(iframe_code, height=700, width=1000)
+        elif selected =="📊 시각화":
+            # 임베드할 링크 입력
+            iframe_code = """
+            <iframe 
+                src="https://www.app.guideflo.com/workspace/2665/manuals/8725/embed?embedSize=responsive&isCover=true" 
+                style="min-height:640px;" 
+                sandbox="allow-scripts allow-top-navigation-by-user-activation allow-popups allow-same-origin" 
+                security="restricted" 
+                title="Step-by-Step Guide" 
+                width="100%" 
+                height="100%" 
+                referrerpolicy="strict-origin-when-cross-origin" 
+                frameborder="0" 
+                webkitallowfullscreen 
+                mozallowfullscreen 
+                allowfullscreen>
+            </iframe>
+            """
+            # Streamlit 컴포넌트로 HTML 코드 삽입
+            st.components.v1.html(iframe_code, height=700, width=1000)
+        elif selected =="📊 특성표 생성":
+            # 임베드할 링크 입력
+            iframe_code = """
+            <iframe 
+                src="https://www.app.guideflo.com/workspace/2636/manuals/8727/embed?embedSize=responsive&isCover=true" 
+                style="min-height:640px;" 
+                sandbox="allow-scripts allow-top-navigation-by-user-activation allow-popups allow-same-origin" 
+                security="restricted" 
+                title="Step-by-Step Guide" 
+                width="100%" 
+                height="100%" 
+                referrerpolicy="strict-origin-when-cross-origin" 
+                frameborder="0" 
+                webkitallowfullscreen 
+                mozallowfullscreen 
+                allowfullscreen>
+            </iframe>
+            """
+            # Streamlit 컴포넌트로 HTML 코드 삽입
+            st.components.v1.html(iframe_code, height=700, width=1000)
+        elif selected =="💻 로지스틱 회귀분석":
+            # 임베드할 링크 입력
+            iframe_code = """
+            <iframe 
+                src="https://www.app.guideflo.com/workspace/2636/manuals/8728/embed?embedSize=responsive&isCover=true" 
+                style="min-height:640px;" 
+                sandbox="allow-scripts allow-top-navigation-by-user-activation allow-popups allow-same-origin" 
+                security="restricted" 
+                title="Step-by-Step Guide" 
+                width="100%" 
+                height="100%" 
+                referrerpolicy="strict-origin-when-cross-origin" 
+                frameborder="0" 
+                webkitallowfullscreen 
+                mozallowfullscreen 
+                allowfullscreen>
+            </iframe>
+            """
+            # Streamlit 컴포넌트로 HTML 코드 삽입
+            st.components.v1.html(iframe_code, height=700, width=1000)
+        elif selected =="💻 생존분석":
+            # 임베드할 링크 입력
+            iframe_code = """
+            <iframe 
+                src="https://www.app.guideflo.com/workspace/2636/manuals/8729/embed?embedSize=responsive&isCover=true" 
+                style="min-height:640px;" 
+                sandbox="allow-scripts allow-top-navigation-by-user-activation allow-popups allow-same-origin" 
+                security="restricted" 
+                title="Step-by-Step Guide" 
+                width="100%" 
+                height="100%" 
+                referrerpolicy="strict-origin-when-cross-origin" 
+                frameborder="0" 
+                webkitallowfullscreen 
+                mozallowfullscreen 
+                allowfullscreen>
+            </iframe>
+            """
+            # Streamlit 컴포넌트로 HTML 코드 삽입
+            st.components.v1.html(iframe_code, height=700, width=1000)     
         else:
             st.write("업로드 준비중입니다.")
 
@@ -483,19 +711,90 @@ if login():  # If logged in, show the rest of the app
                     # Display a divider and a section header
                     st.divider()
                     st.header("📝 피봇 데이터 필터링", divider="rainbow")
-                    num = st.selectbox("✔️ 최대 내원 횟수를 n회로 필터링합니다:", ["-- 선택 --"] + list(range(1, max_len)))
+                    
+                    # Add row number to identify visit order
+                    df["row_number"] = df.groupby(id_column).cumcount() + 1
+                    max_len = df["row_number"].max()  # Maximum number of visits for filtering
 
-                    if num != "-- 선택 --":
-                        # Determine columns to keep based on the selected max visit count
-                        columns_to_keep = [col for col in st.session_state.df_pivot.columns
-                                        if not any(col.endswith(f"_{i}") for i in range(num + 1, max_len + 1))]
+                    # Filtering options
+                    filter_option = st.selectbox(
+                        "✔️ 데이터를 필터링할 기준을 선택하세요:",
+                        ["-- 선택 --", "환자별 첫 방문", "환자별 마지막 방문", "환자별 첫 방문과 마지막 방문"]
+                        + [f"{i}회 방문까지만" for i in range(2, max_len)]
+                    )
 
-                        # Filter the DataFrame based on selected columns
-                        df_pivot_filtered = st.session_state.df_pivot[columns_to_keep]
-                        st.session_state.df_pivot_filtered = df_pivot_filtered
+                    if filter_option == "-- 선택 --":
+                        st.stop()
 
-                        # Display the filtered DataFrame
-                        st.dataframe(df_pivot_filtered, use_container_width=True)
+                    if filter_option == "환자별 첫 방문":
+                        # Find first visit for each patient
+                        first_visits = df.groupby(id_column).first().reset_index()
+                        first_visits.columns = [f"{col}_first" if col != id_column else col for col in first_visits.columns]
+                        first_visits = first_visits.drop(columns=["row_number"], errors="ignore")  # Remove row_number if exists
+                        st.session_state.df_pivot_filtered = first_visits
+                        st.dataframe(first_visits, use_container_width=True)
+
+                    elif filter_option == "환자별 마지막 방문":
+                        # Find last visit for each patient
+                        last_visits = df.groupby(id_column).last().reset_index()
+                        last_visits.columns = [f"{col}_last" if col != id_column else col for col in last_visits.columns]
+                        last_visits = last_visits.drop(columns=["row_number"], errors="ignore")  # Remove row_number if exists
+                        st.session_state.df_pivot_filtered = last_visits
+                        st.dataframe(last_visits, use_container_width=True)
+
+                    elif filter_option == "환자별 첫 방문과 마지막 방문":
+                        # Find first visit
+                        first_visits = df.groupby(id_column).first().reset_index()
+                        first_visits.columns = [f"{col}_first" if col != id_column else col for col in first_visits.columns]
+
+                        # Find last visit
+                        last_visits = df.groupby(id_column).last().reset_index()
+                        last_visits.columns = [f"{col}_last" if col != id_column else col for col in last_visits.columns]
+
+                        # Merge first and last visits
+                        combined_visits = pd.merge(first_visits, last_visits, on=id_column, how="inner")
+
+                        # Handle cases where first and last visits are the same
+                        same_date_condition = combined_visits[f"{date_column}_first"] == combined_visits[f"{date_column}_last"]
+                        for col in combined_visits.columns:
+                            if col.endswith("_last"):
+                                combined_visits.loc[same_date_condition, col] = None  # Set _last columns to NaN if same date
+
+                        # Use original columns to create interleaved _first and _last columns
+                        original_columns = [col for col in st.session_state.df.columns if col not in [id_column, date_column]]
+                        interleaved_columns = []
+                        for col in original_columns:
+                            if f"{col}_first" in combined_visits.columns:
+                                interleaved_columns.append(f"{col}_first")
+                            if f"{col}_last" in combined_visits.columns:
+                                interleaved_columns.append(f"{col}_last")
+
+                        # Reorder columns with id_column first
+                        reordered_columns = [id_column, f"{date_column}_first", f"{date_column}_last"] + interleaved_columns
+                        combined_visits = combined_visits[reordered_columns]
+
+                        # Save and display the result
+                        st.session_state.df_pivot_filtered = combined_visits
+                        st.dataframe(combined_visits, use_container_width=True)
+
+                    elif "회 방문까지만" in filter_option:
+                        # Parse the maximum number of visits from the selected option
+                        max_visits = int(filter_option.split("회")[0])
+
+                        # Filter the DataFrame to include only up to `max_visits` visits
+                        filtered_df = df[df["row_number"] <= max_visits].copy()
+
+                        # Pivot the filtered data for output
+                        filtered_df_pivot = filtered_df.pivot(index=id_column, columns="row_number")
+                        filtered_df_pivot.columns = [f"{col}_{num}" for col, num in filtered_df_pivot.columns]
+                        filtered_df_pivot.reset_index(inplace=True)
+
+                        # Drop 'row_number' if it exists in the DataFrame (extra safety)
+                        if "row_number" in filtered_df_pivot.columns:
+                            filtered_df_pivot = filtered_df_pivot.drop(columns=["row_number"], errors="ignore")
+
+                        st.session_state.df_pivot_filtered = filtered_df_pivot
+                        st.dataframe(filtered_df_pivot, use_container_width=True)
 
                         st.write(" ")
                         st.markdown("<h4 style='color:grey;'>피봇(필터) 데이터 다운로드</h4>", unsafe_allow_html=True)
@@ -1922,7 +2221,7 @@ if login():  # If logged in, show the rest of the app
                             sample[response_col] = sample[response_col].astype('category')
 
                         if sample[response_col].nunique() != 2:
-                            raise ValueError("선택할 종속변수가 2개의 범주를 가져야합니다.")
+                            raise ValueError("선택할 반응변수(종속변수)가 2개의 범주를 가져야합니다.")
 
                         # Remove rows with missing response column values
                         sample = sample.dropna(subset=[response_col])
@@ -2037,7 +2336,7 @@ if login():  # If logged in, show the rest of the app
                             sample[response_col] = sample[response_col].astype('category')
 
                         if sample[response_col].nunique() != 3:
-                            raise ValueError("선택할 종속변수가 3개의 범주를 가져야합니다.")
+                            raise ValueError("선택할 반응변수(종속변수)가 3개의 범주를 가져야합니다.")
 
                         # Remove rows with missing response column values
                         sample = sample.dropna(subset=[response_col])
@@ -2158,7 +2457,7 @@ if login():  # If logged in, show the rest of the app
 
                     # Let the user select whether the dependent variable has 2 or 3 categories
                     category_choice = st.radio(
-                        "✔️ 종속변수가 몇 개의 범주를 가지는지 선택해주세요:",
+                        "✔️ 반응변수(종속변수)가 몇 개의 범주를 가지는지 선택해주세요:",
                         options=["2 범주", "3 범주"]
                     )
                     st.write()
@@ -2183,7 +2482,7 @@ if login():  # If logged in, show the rest of the app
                         }
                         </style>
                         <div class="custom-callout">
-                            <p>- 종속변수가 결측인 행은 제외 후 count됩니다.</p>
+                            <p>- 반응변수(종속변수)가 결측인 행은 제외 후 count됩니다.</p>
                             <p>- 범주형 변수에 Chi-square 검정이 사용됩니다.</p>
                             <p>- 등분산성을 갖는 연속형 변수에 Student t-검정이 사용되며, 이분산성을 갖는 연속형 변수에 Welch's t-검정이 적용됩니다.</p>
 
@@ -2195,7 +2494,7 @@ if login():  # If logged in, show the rest of the app
                         st.write(" ")
 
                         response_col = st.selectbox(
-                            "✔️ 통계적 유의성을 볼 종속변수(y)를 선택해주세요:",
+                            "✔️ 통계적 유의성을 볼 반응변수(종속변수)(y)를 선택해주세요:",
                             options=["-- 선택 --"] + [col for col in df.columns if df[col].nunique() == 2],
                             index=0
                         )
@@ -2262,7 +2561,7 @@ if login():  # If logged in, show the rest of the app
                         }
                         </style>
                         <div class="custom-callout">
-                            <p>- 종속변수가 결측인 행은 제외 후 count됩니다.</p>
+                            <p>- 반응변수(종속변수)가 결측인 행은 제외 후 count됩니다.</p>
                             <p>- 범주형 변수에 Chi-square 검정이 사용됩니다.</p>
                             <p>- 등분산성을 갖는 연속형 변수에 ANOVA 검정이 사용되며, 이분산성을 갖는 연속형 변수에 Kruskal-Wallis 검정이 적용됩니다.</p>
 
@@ -2274,7 +2573,7 @@ if login():  # If logged in, show the rest of the app
                         st.write(" ")
 
                         response_col = st.selectbox(
-                            "✔️ 통계적 유의성을 볼 종속변수(y)를 선택해주세요:",
+                            "✔️ 통계적 유의성을 볼 반응변수(종속변수)(y)를 선택해주세요:",
                             options=["-- 선택 --"] + [col for col in df.columns if df[col].nunique() == 3],
                             index=0
                         )
@@ -2471,21 +2770,21 @@ if login():  # If logged in, show the rest of the app
                     continuous_columns = st.multiselect(
                         "✔️ 연속형 변수를 선택해주세요:",
                         available_columns,  # 고유 값이 4 이상인 열만 표시
-                        key="continuous_columns_selection"
+                        key="continuous_columns_selection_1"
                     )
 
                     # 범주형 변수 선택
                     categorical_columns = st.multiselect(
                         "✔️ 범주형 변수를 선택해주세요:",
                         get_categorical_columns(df),
-                        key="categorical_columns_selection"
+                        key="categorical_columns_selection_1"
                     )
 
                     # 선택한 변수 기록
                     st.session_state.X_columns = continuous_columns + categorical_columns
 
                     # 선택 완료 버튼
-                    if st.button('선택 완료', key='complete_button'):
+                    if st.button('선택 완료', key='complete_button_1'):
                         if len(continuous_columns) + len(categorical_columns) > 1:
                             st.session_state.continuous_columns = continuous_columns
                             st.session_state.categorical_columns = categorical_columns
@@ -2905,7 +3204,7 @@ if login():  # If logged in, show the rest of the app
         # 1. 파일 업로드
         st.markdown("<h4 style='color:grey;'>데이터 업로드</h4>", unsafe_allow_html=True)
         uploaded_file = st.file_uploader("📁 로지스틱 회귀분석에 이용하실 데이터 파일을 업로드해주세요:")
-        st.warning("로지스틱 회귀는 범주형 타입의 종속변수를 분석합니다.", icon="🚨")
+        st.warning("로지스틱 회귀는 범주형 타입의 반응변수(종속변수)를 분석합니다.", icon="🚨")
 
         if uploaded_file is not None:
             try:
@@ -3007,8 +3306,8 @@ if login():  # If logged in, show the rest of the app
                     }
                     </style>
                     <div class="custom-callout">
-                        <p>- 로지스틱 회귀분석은 종속변수(y)가 범주형 변수일 경우 가능합니다.</p>
-                        <p>- 범주형 설명변수는 unique 값이 5개 미만인 변수들로만 인식됩니다.</p>
+                        <p>- 로지스틱 회귀분석은 반응변수(종속변수)(y)가 범주형 변수일 경우 가능합니다.</p>
+                        <p>- 범주형 설명변수(독립변수)는 unique 값이 5개 미만인 변수들로만 인식됩니다.</p>
                     </div>
                     """,
                     unsafe_allow_html=True
@@ -3024,389 +3323,340 @@ if login():  # If logged in, show the rest of the app
                         st.session_state.proceed_to_preprocessing = False
 
                     y_column = st.selectbox(
-                        "✔️ 종속변수(y)를 선택해주세요:",
+                        "✔️ 반응변수(종속변수)(y)를 선택해주세요:",
                         options=["-- 선택 --"] + [col for col in df.columns if df[col].nunique() == 2],
                         index=0
                     )
+
+                    analysis_type = 'logit'
+
+                    # 고유 key 생성 함수
+                    def generate_key(base_key):
+                        return f"{analysis_type}_{base_key}"
 
                     def get_categorical_columns(df):
                         categorical_columns = list(df.select_dtypes(include=['object', 'category']).columns)
                         low_cardinality_numerical = [col for col in df.select_dtypes(exclude=['object', 'category']).columns if df[col].nunique() < 5]
                         return categorical_columns + low_cardinality_numerical
 
-                    # 종속변수(y)가 선택된 경우에만 설명변수 선택 창 표시
+                    # 반응변수(종속변수)(y)가 선택된 경우에만 설명변수(독립변수) 선택 창 표시
                     if y_column != "-- 선택 --":
                         st.session_state.y_column = y_column
 
                         # Separate selections for continuous and categorical variables
                         continuous_columns = st.multiselect(
-                            "✔️ 연속형 설명변수(X)를 선택해주세요:",
-                            df.select_dtypes(include=['float64', 'int64']).columns,
-                            key="continuous_columns_selection"
+                            "✔️ 연속형 설명변수(독립변수)(X)를 선택해주세요:",
+                            [col for col in df.select_dtypes(include=['float64', 'int64']).columns if df[col].nunique() >= 5],
+                            key=generate_key("continuous_selection")
                         )
 
                         categorical_columns = st.multiselect(
-                            "✔️ 범주형 설명변수(X)를 선택해주세요:",
+                            "✔️ 범주형 설명변수(독립변수)(X)를 선택해주세요:",
                             get_categorical_columns(df),
-                            key="categorical_columns_selection"
+                            key=generate_key("categorical_selection")
                         )
 
-                        st.session_state.X_columns = continuous_columns + categorical_columns
+                        st.session_state[f"{analysis_type}_X_columns"] = continuous_columns + categorical_columns
 
-                        # Add a button to confirm the selections
-                        if st.button('선택 완료', key='complete_button'):
-                            if y_column and (continuous_columns or categorical_columns):  # Ensure that y and at least one X is selected
-                                st.session_state.y_column = y_column
-                                st.session_state.continuous_columns = continuous_columns
-                                st.session_state.categorical_columns = categorical_columns
-                                st.session_state.proceed_to_preprocessing = True
+                        # 선택 완료 버튼
+                        if st.button('선택 완료', key=generate_key("complete_button")):
+                            if y_column and (continuous_columns or categorical_columns):  # 반응변수와 설명변수 확인
+                                st.session_state[f"{analysis_type}_y_column"] = y_column
+                                st.session_state[f"{analysis_type}_continuous_columns"] = continuous_columns
+                                st.session_state[f"{analysis_type}_categorical_columns"] = categorical_columns
+                                st.session_state[f"{analysis_type}_proceed"] = True  # Proceed 상태 설정
+                                st.session_state[f"{analysis_type}_has_missing_values"] = False  # 초기화
+                                st.success("변수 선택이 완료되었습니다. 다음 단계로 진행하세요.", icon="✅")
                             else:
-                                st.warning("종속변수와 설명변수를 한 개 이상 선택해주세요.", icon="⚠️")
+                                st.warning("적어도 하나의 변수를 선택해주세요.", icon="⚠️")
+                                st.session_state[f"{analysis_type}_proceed"] = False  # Proceed 상태 해제
 
-                            # Drop rows with missing values in the dependent variable (y)
-                            df = df.dropna(subset=[st.session_state.y_column])
-
-                            # Separate continuous and categorical columns
-                            X_continuous = df[st.session_state.continuous_columns]
-                            X_categorical = df[st.session_state.categorical_columns]
-                            y = df[st.session_state.y_column]
-
-                        # 전처리 단계 (선택 완료 후 진행)
-                        if st.session_state.get("proceed_to_preprocessing", False):
+                        # 전처리 단계
+                        if st.session_state.get(f"{analysis_type}_proceed", False):
                             st.divider()
                             st.markdown("<h4 style='color:grey;'>결측 파악 및 처리</h4>", unsafe_allow_html=True)
+                            if st.session_state.get(f"{analysis_type}_proceed", False):
+                                X_continuous = df[st.session_state[f"{analysis_type}_continuous_columns"]]
+                                X_categorical = df[st.session_state[f"{analysis_type}_categorical_columns"]]
+                                y = df[st.session_state[f"{analysis_type}_y_column"]]
 
-                            # Check missing values in y
-                            y_missing_count = df[st.session_state.y_column].isna().sum()
-                            if y_missing_count > 0:
-                                st.warning(f"선택된 종속변수 '{st.session_state.y_column}'에 결측값이 {y_missing_count}개 있습니다. 해당 행은 분석에서 제외됩니다.", icon="⚠️")
-                                df = df.dropna(subset=[st.session_state.y_column])
+                                # 결측값 확인
+                                continuous_missing = X_continuous.isnull().any().any()
+                                categorical_missing = X_categorical.isnull().any().any()
+                                y_missing_count = y.isna().sum()
 
-                            # 데이터 분리
-                            X_continuous = df[st.session_state.continuous_columns]
-                            X_categorical = df[st.session_state.categorical_columns]
-                            y = df[st.session_state.y_column]
+                                if y_missing_count > 0:
+                                    st.error(f"반응변수(종속변수)에 결측값이 {y_missing_count}개 있습니다. 분석에서 제외됩니다.")
+                                    df = df.dropna(subset=[st.session_state[f"{analysis_type}_y_column"]])
 
-                            # Check for missing values in independent variables
-                            continuous_missing = X_continuous.isnull().any().any()
-                            categorical_missing = X_categorical.isnull().any().any()
+                                if continuous_missing or categorical_missing:
+                                    st.session_state[f"{analysis_type}_has_missing_values"] = True
+                                    # st.error("선택된 설명변수에 결측값이 있습니다. 결측 처리 방법을 선택해주세요.")
+                                else:
+                                    st.session_state[f"{analysis_type}_has_missing_values"] = False
+                                    st.success("결측 처리 작업 없이 분석이 가능합니다.", icon="✅")
 
-                            # 결측이 없으면 분석이 가능하다는 메시지를 띄움
-                            if not continuous_missing and not categorical_missing:
-                                st.success("결측 처리 작업 없이 분석이 가능합니다.", icon="✅")
-                                st.session_state.logit_ready = True  # 데이터가 준비된 상태로 설정
-                            else:
-                                st.session_state.logit_ready = False  # 결측이 있으면 logit_ready를 False로 설정
+                                # 결측 처리 방법 선택
+                                continuous_missing_value_strategies = {}
+                                categorical_missing_value_strategies = {}
 
-                            # 결측 처리 로직
-                            continuous_missing_value_strategies = {}
-                            categorical_missing_value_strategies = {}
-
-                            # 연속형 변수 결측 처리
-                            for column in st.session_state.continuous_columns:
-                                missing_count = df[column].isna().sum()
-                                if missing_count > 0:
-                                    st.error(f"선택하신 연속형 변수 '{column}'에 결측치 {missing_count}개가 있습니다.", icon="⛔")
-                                    strategy = st.selectbox(
-                                        f"✔️ '{column}'의 결측 처리 방법을 선택해주세요:",
-                                        ['-- 선택 --', '결측이 존재하는 행을 제거', '해당 열의 평균값으로 대체', '해당 열의 중앙값으로 대체', '해당 열의 최빈값으로 대체'],
-                                        key=f"continuous_{column}_strategy"
-                                    )
-                                    if strategy != '-- 선택 --':
-                                        continuous_missing_value_strategies[column] = strategy
-
-                            # 범주형 변수 결측 처리
-                            for column in st.session_state.categorical_columns:
-                                missing_count = df[column].isna().sum()
-                                if missing_count > 0:
-                                    st.error(f"선택하신 범주형 변수 '{column}'에 결측치 {missing_count}개가 있습니다.", icon="⛔")
-                                    strategy = st.selectbox(
-                                        f"✔️ '{column}'의 결측 처리 방법을 선택해주세요:",
-                                        ['-- 선택 --', '결측이 존재하는 행을 제거', '해당 열의 최빈값으로 대체'],
-                                        key=f"categorical_{column}_strategy"
-                                    )
-                                    if strategy != '-- 선택 --':
-                                        categorical_missing_value_strategies[column] = strategy
-
-                            # "분석 시작" 버튼을 항상 표시
-                            if st.button("🚀 분석 시작"):
-                                if continuous_missing_value_strategies or categorical_missing_value_strategies:
+                                if st.session_state[f"{analysis_type}_has_missing_values"]:
                                     # 연속형 변수 결측 처리
-                                    for column, strategy in continuous_missing_value_strategies.items():
-                                        if strategy == '결측이 존재하는 행을 제거':
-                                            X_continuous = X_continuous.dropna(subset=[column])
-                                        else:
-                                            impute_strategy = {
-                                                '해당 열의 평균값으로 대체': 'mean',
-                                                '해당 열의 중앙값으로 대체': 'median',
-                                                '해당 열의 최빈값으로 대체': 'most_frequent'
-                                            }[strategy]
-                                            imputer = SimpleImputer(strategy=impute_strategy)
-                                            X_continuous[[column]] = imputer.fit_transform(X_continuous[[column]])
+                                    for column in st.session_state[f"{analysis_type}_continuous_columns"]:
+                                        missing_count = X_continuous[column].isna().sum()
+                                        if missing_count > 0:
+                                            st.error(f"연속형 변수 '{column}'에 결측치 {missing_count}개가 있습니다.", icon="⛔")
+                                            strategy = st.selectbox(
+                                                f"✔️ '{column}'의 결측 처리 방법을 선택해주세요:",
+                                                ['-- 선택 --', '결측이 존재하는 행을 제거', '해당 열의 평균값으로 대체', '해당 열의 중앙값으로 대체', '해당 열의 최빈값으로 대체'],
+                                                key=generate_key(f"continuous_{column}_strategy")
+                                            )
+                                            if strategy != '-- 선택 --':
+                                                continuous_missing_value_strategies[column] = strategy
 
                                     # 범주형 변수 결측 처리
-                                    for column, strategy in categorical_missing_value_strategies.items():
-                                        if strategy == '결측이 존재하는 행을 제거':
-                                            # Drop rows with missing values in the column
-                                            X_categorical = X_categorical.dropna(subset=[column])
-                                        elif strategy == '해당 열의 최빈값으로 대체':
-                                            # Ensure the column is of categorical type (optional, depending on your data)
-                                            if X_categorical[column].dtype not in ['category', 'object']:
-                                                X_categorical[column] = X_categorical[column].astype('category')
-                                            
-                                            # Impute the most frequent value
-                                            imputer = SimpleImputer(strategy='most_frequent')
-                                            X_categorical[[column]] = imputer.fit_transform(X_categorical[[column]])
+                                    for column in st.session_state[f"{analysis_type}_categorical_columns"]:
+                                        missing_count = X_categorical[column].isna().sum()
+                                        if missing_count > 0:
+                                            st.error(f"범주형 변수 '{column}'에 결측치 {missing_count}개가 있습니다.", icon="⛔")
+                                            strategy = st.selectbox(
+                                                f"✔️ '{column}'의 결측 처리 방법을 선택해주세요:",
+                                                ['-- 선택 --', '결측이 존재하는 행을 제거', '해당 열의 최빈값으로 대체'],
+                                                key=generate_key(f"categorical_{column}_strategy")
+                                            )
+                                            if strategy != '-- 선택 --':
+                                                categorical_missing_value_strategies[column] = strategy
 
-                                    # 인덱스를 동기화
-                                    shared_indexes = X_continuous.index.intersection(X_categorical.index)
-                                    X_continuous = X_continuous.loc[shared_indexes]
-                                    X_categorical = X_categorical.loc[shared_indexes]
-                                    y = y.loc[shared_indexes]
-
-                                    # session_state에 갱신된 데이터 저장
-                                    st.session_state.X_continuous = X_continuous
-                                    st.session_state.X_categorical = X_categorical
-                                    st.session_state.y = y
-                                    st.session_state.logit_ready = True  # 데이터 준비 완료로 설정
-
-                                    # 디버깅용 출력
-                                    st.success("결측값 처리가 완료되었습니다. 분석을 진행하세요.", icon="✅")
-                                else:
-                                    # 결측값이 없을 때 처리 완료 문구를 출력하지 않음
-                                    st.session_state.logit_ready = True  # 데이터 준비 완료로 설정
-                                    # st.success("결측 처리 작업 없이 분석이 가능합니다.", icon="✅")
-
-                                # 분석 시작 버튼이 눌린 경우
-                                if st.session_state.get("logit_ready", False):
+                                # 분석 시작 버튼
+                                if st.button("🚀 분석 시작", key=generate_key("start_analysis")):
                                     st.divider()
-                                    st.header('💻 Logistic Regression 결과', divider='rainbow')
+                                    st.header("💻 Logistic Regression 결과", divider='rainbow')
+                                    if st.session_state[f"{analysis_type}_has_missing_values"]:
+                                        # 결측값 처리
+                                        for column, strategy in continuous_missing_value_strategies.items():
+                                            if strategy == '결측이 존재하는 행을 제거':
+                                                X_continuous = X_continuous.dropna(subset=[column])
+                                            else:
+                                                impute_strategy = {
+                                                    '해당 열의 평균값으로 대체': 'mean',
+                                                    '해당 열의 중앙값으로 대체': 'median',
+                                                    '해당 열의 최빈값으로 대체': 'most_frequent'
+                                                }[strategy]
+                                                imputer = SimpleImputer(strategy=impute_strategy)
+                                                X_continuous[[column]] = imputer.fit_transform(X_continuous[[column]])
 
-                                    # 설명변수가 하나라도 선택되었는지 확인
-                                    if not X_continuous.empty or not X_categorical.empty:  # 하나라도 데이터가 있으면 진행
-                                        # 범주형 변수 처리
-                                        if not X_categorical.empty:
-                                            # One-Hot Encoding for categorical variables
-                                            X_categorical = pd.get_dummies(X_categorical, drop_first=True)
+                                        for column, strategy in categorical_missing_value_strategies.items():
+                                            if strategy == '결측이 존재하는 행을 제거':
+                                                X_categorical = X_categorical.dropna(subset=[column])
+                                            elif strategy == '해당 열의 최빈값으로 대체':
+                                                imputer = SimpleImputer(strategy='most_frequent')
+                                                X_categorical[[column]] = imputer.fit_transform(X_categorical[[column]])
 
-                                            # Boolean 처리
-                                            for column in X_categorical.columns:
-                                                if X_categorical[column].dtype == 'bool':  # Only map if the column is of boolean type
-                                                    X_categorical[column] = X_categorical[column].map({True: 1, False: 0})
+                                        # 인덱스 동기화
+                                        shared_indexes = X_continuous.index.intersection(X_categorical.index)
+                                        X_continuous = X_continuous.loc[shared_indexes]
+                                        X_categorical = X_categorical.loc[shared_indexes]
+                                        y = y.loc[shared_indexes]
 
-                                        # 연속형 변수와 범주형 변수 병합 (하나만 선택된 경우 처리)
+                                    # 분석 실행
+                                    try:
+                                        # 데이터 병합
                                         if not X_continuous.empty and not X_categorical.empty:
-                                            # 둘 다 존재하는 경우 concat
                                             X = pd.concat([X_continuous, X_categorical], axis=1)
                                         elif not X_continuous.empty:
-                                            # 연속형 변수만 있는 경우
                                             X = X_continuous.copy()
                                         elif not X_categorical.empty:
-                                            # 범주형 변수만 있는 경우
                                             X = X_categorical.copy()
                                         else:
-                                            # 둘 다 비어 있는 경우는 예외 처리 (여기서 실행되지 않음)
                                             raise ValueError("연속형 변수와 범주형 변수 중 최소 하나를 선택해야 합니다.")
 
-                                        # Ensure all columns in X are numeric
-                                        X = X.apply(pd.to_numeric, errors='coerce')
+                                        # Train/Test Split
+                                        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
-                                        # 결측 및 무한 값 확인
-                                        if X.isnull().values.any():
-                                            st.error("전처리 후에도 설명변수에 결측치가 남아 있습니다. 결측치 처리를 확인해주세요.")
-                                            st.dataframe(X)  # 디버깅용 데이터 출력
-                                        elif np.isinf(X).values.any():
-                                            st.error("전처리 후 설명변수에 무한 값이 존재합니다. 데이터 정규화를 확인해주세요.")
-                                            st.dataframe(X)  # 디버깅용 데이터 출력
-                                        else:
-                                            try:
-                                                # Split the data
-                                                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+                                        # Add constant (intercept)
+                                        X_train_const = sm.add_constant(X_train)
+                                        X_test_const = sm.add_constant(X_test)
 
-                                                # Add constant (intercept) to the features
-                                                X_train_const = sm.add_constant(X_train)
-                                                X_test_const = sm.add_constant(X_test)
+                                        # Logistic regression model
+                                        model = sm.Logit(y_train, X_train_const)
+                                        result = model.fit()
 
-                                                # Logistic regression model using statsmodels
-                                                model = sm.Logit(y_train, X_train_const)
-                                                result = model.fit()
+                                        # Predictions
+                                        y_pred_prob = result.predict(X_test_const)
+                                        y_pred_class = (y_pred_prob >= 0.5).astype(int)
 
-                                                # Predictions
-                                                y_pred_prob = result.predict(X_test_const)
-                                                y_pred_class = (y_pred_prob >= 0.5).astype(int)
+                                        # 결과 출력
+                                        st.markdown("<h4 style='font-size:16px;'>Model OR & P-value:</h4>", unsafe_allow_html=True)
+                                        summary_table = result.summary2().tables[1]
+                                        summary_df = summary_table[['Coef.', 'P>|z|', '[0.025', '0.975]']]
 
-                                                # 결과 출력
-                                                st.markdown("<h4 style='font-size:16px;'>Model OR & P-value:</h4>", unsafe_allow_html=True)
-                                                summary_table = result.summary2().tables[1]
-                                                summary_df = summary_table[['Coef.', 'P>|z|', '[0.025', '0.975]']]
+                                        # Calculate Odds Ratio (OR) as the exponential of the coefficient
+                                        summary_df['OR'] = np.exp(summary_df['Coef.'])
+                                        summary_df['95% CI Lower'] = np.exp(summary_df['[0.025'])
+                                        summary_df['95% CI Upper'] = np.exp(summary_df['0.975]'])
 
-                                                # Calculate Odds Ratio (OR) as the exponential of the coefficient
-                                                summary_df['OR'] = np.exp(summary_df['Coef.'])
-                                                summary_df['95% CI Lower'] = np.exp(summary_df['[0.025'])
-                                                summary_df['95% CI Upper'] = np.exp(summary_df['0.975]'])
+                                        # Rename columns for clarity
+                                        summary_df = summary_df.rename(columns={'P>|z|': 'P-value'})
 
-                                                # Rename columns for clarity
-                                                summary_df = summary_df.rename(columns={'P>|z|': 'P-value'})
+                                        # Replace P-values equal to 0 with "<0.001"
+                                        summary_df['P-value'] = summary_df['P-value'].apply(lambda x: '<0.001' if x == 0 else round(x, 4))
 
-                                                # Replace P-values equal to 0 with "<0.001"
-                                                summary_df['P-value'] = summary_df['P-value'].apply(lambda x: '<0.001' if x == 0 else round(x, 4))
+                                        # Rearrange columns to include OR, Coefficient, P-value, and Confidence Interval
+                                        summary_df = summary_df[['OR', '95% CI Lower', '95% CI Upper', 'P-value']]
+                                        st.dataframe(summary_df, use_container_width=True)
 
-                                                # Rearrange columns to include OR, Coefficient, P-value, and Confidence Interval
-                                                summary_df = summary_df[['OR', '95% CI Lower', '95% CI Upper', 'P-value']]
-                                                st.dataframe(summary_df, use_container_width=True)
+                                        # Classification Report
+                                        st.markdown("<h5 style='font-size:16px;'><strong>Classification Report:</strong></h5>", unsafe_allow_html=True)
+                                        report = classification_report(y_test, y_pred_class, output_dict=True)
+                                        st.dataframe(pd.DataFrame(report).transpose(), use_container_width=True)
 
-                                                # Classification Report
-                                                st.markdown("<h5 style='font-size:16px;'><strong>Classification Report:</strong></h5>", unsafe_allow_html=True)
-                                                report = classification_report(y_test, y_pred_class, output_dict=True)
-                                                st.dataframe(pd.DataFrame(report).transpose(), use_container_width=True)
+                                        st.write(" ")
+                                        st.write(" ")
+                                        st.header("💻 Logistic Regression Figures", divider='rainbow')
+                                        # AUC Curve
+                                        fpr, tpr, _ = roc_curve(y_test, y_pred_prob)
+                                        roc_auc = auc(fpr, tpr)
 
-                                                st.write(" ")
-                                                st.write(" ")
-                                                st.header("💻 Logistic Regression Figures", divider='rainbow')
-                                                # AUC Curve
-                                                fpr, tpr, _ = roc_curve(y_test, y_pred_prob)
-                                                roc_auc = auc(fpr, tpr)
+                                        # Create a Plotly figure for ROC Curve
+                                        fig_roc = go.Figure()
 
-                                                # Create a Plotly figure for ROC Curve
-                                                fig_roc = go.Figure()
+                                        # Add ROC curve line
+                                        fig_roc.add_trace(go.Scatter(
+                                            x=fpr, y=tpr,
+                                            mode='lines',
+                                            name=f'ROC curve (area = {roc_auc:.2f})',
+                                            line=dict(color='darkorange', width=2)
+                                        ))
 
-                                                # Add ROC curve line
-                                                fig_roc.add_trace(go.Scatter(
-                                                    x=fpr, y=tpr,
-                                                    mode='lines',
-                                                    name=f'ROC curve (area = {roc_auc:.2f})',
-                                                    line=dict(color='darkorange', width=2)
-                                                ))
+                                        # Add diagonal line
+                                        fig_roc.add_trace(go.Scatter(
+                                            x=[0, 1], y=[0, 1],
+                                            mode='lines',
+                                            line=dict(color='navy', width=2, dash='dash'),
+                                            showlegend=False
+                                        ))
 
-                                                # Add diagonal line
-                                                fig_roc.add_trace(go.Scatter(
-                                                    x=[0, 1], y=[0, 1],
-                                                    mode='lines',
-                                                    line=dict(color='navy', width=2, dash='dash'),
-                                                    showlegend=False
-                                                ))
+                                        # Update layout for Plotly figure
+                                        fig_roc.update_layout(
+                                            title="ROC Curve",
+                                            xaxis_title="False Positive Rate",
+                                            yaxis_title="True Positive Rate",
+                                            legend=dict(x=0.4, y=0),
+                                            width=600, height=600  # Adjust dimensions as per your requirement
+                                        )
 
-                                                # Update layout for Plotly figure
-                                                fig_roc.update_layout(
-                                                    title="ROC Curve",
-                                                    xaxis_title="False Positive Rate",
-                                                    yaxis_title="True Positive Rate",
-                                                    legend=dict(x=0.4, y=0),
-                                                    width=600, height=600  # Adjust dimensions as per your requirement
-                                                )
+                                        # Display the Plotly figure in Streamlit
+                                        st.plotly_chart(fig_roc)
 
-                                                # Display the Plotly figure in Streamlit
-                                                st.plotly_chart(fig_roc)
+                                        # Create confusion matrix
+                                        cm = confusion_matrix(y_test, y_pred_class)
 
-                                                # Create confusion matrix
-                                                cm = confusion_matrix(y_test, y_pred_class)
+                                        # Create a Plotly heatmap for confusion matrix
+                                        fig_cm = ff.create_annotated_heatmap(
+                                            z=cm,
+                                            x=['Predicted Negative', 'Predicted Positive'],
+                                            y=['Actual Negative', 'Actual Positive'],
+                                            colorscale='Blues',
+                                            showscale=False,
+                                            annotation_text=[[str(value) for value in row] for row in cm]  # Add annotations with values
+                                        )
 
-                                                # Create a Plotly heatmap for confusion matrix
-                                                fig_cm = ff.create_annotated_heatmap(
-                                                    z=cm,
-                                                    x=['Predicted Negative', 'Predicted Positive'],
-                                                    y=['Actual Negative', 'Actual Positive'],
-                                                    colorscale='Blues',
-                                                    showscale=False,
-                                                    annotation_text=[[str(value) for value in row] for row in cm]  # Add annotations with values
-                                                )
+                                        # Update annotations to change font size
+                                        for annotation in fig_cm.layout.annotations:
+                                            annotation.font.size = 16  # Adjust font size
+                                            annotation.font.color = "black"  # Change font color for better contrast
 
-                                                # Update annotations to change font size
-                                                for annotation in fig_cm.layout.annotations:
-                                                    annotation.font.size = 16  # Adjust font size
-                                                    annotation.font.color = "black"  # Change font color for better contrast
+                                        # Update layout for the confusion matrix
+                                        fig_cm.update_layout(
+                                            title="Confusion Matrix",
+                                            width=600, height=600  # Adjust dimensions as per your requirement
+                                        )
 
-                                                # Update layout for the confusion matrix
-                                                fig_cm.update_layout(
-                                                    title="Confusion Matrix",
-                                                    width=600, height=600  # Adjust dimensions as per your requirement
-                                                )
+                                        # Display the Plotly heatmap in Streamlit
+                                        st.plotly_chart(fig_cm)
 
-                                                # Display the Plotly heatmap in Streamlit
-                                                st.plotly_chart(fig_cm)
+                                        # Filter out "const" variable from the summary_df
+                                        summary_df = summary_df[~summary_df.index.str.contains('const')]
 
-                                                # Filter out "const" variable from the summary_df
-                                                summary_df = summary_df[~summary_df.index.str.contains('const')]
+                                        # Drop rows with NaN in CI or OR columns
+                                        summary_df = summary_df.dropna(subset=['95% CI Lower', '95% CI Upper', 'OR'])
 
-                                                # Drop rows with NaN in CI or OR columns
-                                                summary_df = summary_df.dropna(subset=['95% CI Lower', '95% CI Upper', 'OR'])
+                                        # Calculate X-axis range (ensure CI fits and log scale works)
+                                        x_min = 0  # Set minimum to avoid log(0)
+                                        x_max = summary_df['95% CI Upper'].max()+1
 
-                                                # Calculate X-axis range (ensure CI fits and log scale works)
-                                                x_min = 0  # Set minimum to avoid log(0)
-                                                x_max = summary_df['95% CI Upper'].max()+1
+                                        # Apply log transformation safely
+                                        log_x_min = np.log10(x_min)
+                                        log_x_max = np.log10(x_max)
 
-                                                # Apply log transformation safely
-                                                log_x_min = np.log10(x_min)
-                                                log_x_max = np.log10(x_max)
+                                        # Initialize the figure
+                                        fig_forest = go.Figure()
 
-                                                # Initialize the figure
-                                                fig_forest = go.Figure()
+                                        # Add horizontal lines for confidence intervals
+                                        for i, row in summary_df.iterrows():
+                                            # Add CI line
+                                            fig_forest.add_trace(go.Scatter(
+                                                x=[row['95% CI Lower'], row['95% CI Upper']],
+                                                y=[i, i],
+                                                mode='lines',
+                                                line=dict(color='gray', width=2),
+                                                showlegend=False
+                                            ))
 
-                                                # Add horizontal lines for confidence intervals
-                                                for i, row in summary_df.iterrows():
-                                                    # Add CI line
-                                                    fig_forest.add_trace(go.Scatter(
-                                                        x=[row['95% CI Lower'], row['95% CI Upper']],
-                                                        y=[i, i],
-                                                        mode='lines',
-                                                        line=dict(color='gray', width=2),
-                                                        showlegend=False
-                                                    ))
+                                            # Add OR point
+                                            fig_forest.add_trace(go.Scatter(
+                                                x=[row['OR']],
+                                                y=[i],
+                                                mode='markers',
+                                                marker=dict(color='blue', size=7),
+                                                showlegend=False
+                                            ))
 
-                                                    # Add OR point
-                                                    fig_forest.add_trace(go.Scatter(
-                                                        x=[row['OR']],
-                                                        y=[i],
-                                                        mode='markers',
-                                                        marker=dict(color='blue', size=7),
-                                                        showlegend=False
-                                                    ))
+                                            # Add CI end markers ("|") with thicker appearance
+                                            fig_forest.add_trace(go.Scatter(
+                                                x=[row['95% CI Lower'], row['95% CI Upper']],
+                                                y=[i, i],
+                                                mode='text',
+                                                text=["|", "|"],
+                                                textfont=dict(size=18, color="gray", family="Arial Black"),  # Bold and larger font
+                                                textposition="middle center",
+                                                showlegend=False
+                                            ))
 
-                                                    # Add CI end markers ("|") with thicker appearance
-                                                    fig_forest.add_trace(go.Scatter(
-                                                        x=[row['95% CI Lower'], row['95% CI Upper']],
-                                                        y=[i, i],
-                                                        mode='text',
-                                                        text=["|", "|"],
-                                                        textfont=dict(size=18, color="gray", family="Arial Black"),  # Bold and larger font
-                                                        textposition="middle center",
-                                                        showlegend=False
-                                                    ))
+                                        # Add vertical line for OR=1
+                                        fig_forest.add_shape(
+                                            type="line",
+                                            x0=1, x1=1,
+                                            y0=-0.5, y1=len(summary_df) - 0.5,
+                                            line=dict(color="red", width=2, dash="dash")
+                                        )
 
-                                                # Add vertical line for OR=1
-                                                fig_forest.add_shape(
-                                                    type="line",
-                                                    x0=1, x1=1,
-                                                    y0=-0.5, y1=len(summary_df) - 0.5,
-                                                    line=dict(color="red", width=2, dash="dash")
-                                                )
+                                        # Update layout for the forest plot
+                                        fig_forest.update_layout(
+                                            title="Forest Plot of Odds Ratios",
+                                            xaxis=dict(
+                                                title="Odds Ratio",
+                                                type="log",  # Log scale for better visualization
+                                                range=[np.log10(x_min), np.log10(x_max)],
+                                                zeroline=False
+                                            ),
+                                            yaxis=dict(
+                                                title="Variables",
+                                                tickvals=list(range(len(summary_df))),
+                                                ticktext=summary_df.index,  # Use index names (variables) as y-axis labels
+                                                autorange="reversed"  # Reverse Y-axis to match conventional forest plot style
+                                            ),
+                                            width=800,
+                                            height=600,
+                                            template="plotly_white"
+                                        )
 
-                                                # Update layout for the forest plot
-                                                fig_forest.update_layout(
-                                                    title="Forest Plot of Odds Ratios",
-                                                    xaxis=dict(
-                                                        title="Odds Ratio",
-                                                        type="log",  # Log scale for better visualization
-                                                        range=[np.log10(x_min), np.log10(x_max)],
-                                                        zeroline=False
-                                                    ),
-                                                    yaxis=dict(
-                                                        title="Variables",
-                                                        tickvals=list(range(len(summary_df))),
-                                                        ticktext=summary_df.index,  # Use index names (variables) as y-axis labels
-                                                        autorange="reversed"  # Reverse Y-axis to match conventional forest plot style
-                                                    ),
-                                                    width=800,
-                                                    height=600,
-                                                    template="plotly_white"
-                                                )
+                                        # Display the Plotly figure in Streamlit
+                                        st.plotly_chart(fig_forest)
 
-                                                # Display the Plotly figure in Streamlit
-                                                st.plotly_chart(fig_forest)
-
-                                            except Exception as e:
-                                                st.error(f"모델 학습 중 오류가 발생했습니다.")
-                                                st.error("자세한 오류 정보: ", traceback.format_exc())  # 스택 트레이스 출력
+                                    except Exception as e:
+                                        st.error(f"모델 학습 중 오류가 발생했습니다.")
+                                        st.error("자세한 오류 정보: ", traceback.format_exc())  # 스택 트레이스 출력
 
             except Exception as e:
                 st.error(f"오류가 발생하였으므로 보고가 필요합니다, 문의해주시면 감사하겠습니다.\n: {str(e)}")
@@ -3522,30 +3772,48 @@ if login():  # If logged in, show the rest of the app
                     # Session state 초기화
                     if "analysis_ready" not in st.session_state:
                         st.session_state.analysis_ready = False
+                    if "variables_selected" not in st.session_state:
+                        st.session_state.variables_selected = False
 
                     # Step 1: 변수 선택
                     st.markdown("<h4 style='color:grey;'>☑️ 변수 선택</h4>", unsafe_allow_html=True)
 
-                    # 생존 기간 열이 이미 존재하는 경우
+                    # 생존 기간 열 선택
                     duration_column = st.selectbox(
                         "✔️ 사건이 발생하기까지의 시간(duration)을 나타내는 연속형 변수를 선택하세요:",
                         options=["-- 선택 --"] + list(df.columns),
                         index=0,
                         key="duration_column"
                     )
+
+                    # 고유값 개수가 3개 미만인 열만 선택
+                    options = ["-- 선택 --"] + [
+                        col for col in df.columns if df[col].nunique() < 3
+                    ]
                     event_column = st.selectbox(
                         "✔️ 사건이 발생했는지 여부(event)를 나타내는 이진 변수를 선택하세요:",
-                        options=["-- 선택 --"] + list(df.columns),
+                        options=options,
                         index=0,
                         key="event_column"
                     )
 
-                    if duration_column != "-- 선택 --" and event_column != "-- 선택 --":
+                    # 선택 완료 버튼
+                    if st.button("선택 완료", key="select_variables"):
+                        if duration_column != "-- 선택 --" and event_column != "-- 선택 --":
+                            st.session_state.variables_selected = True
+                            st.success("변수 선택이 완료되었습니다. 다음 단계로 진행하세요.", icon="✅")
+                        else:
+                            st.warning("두 변수를 모두 선택해주세요.", icon="⚠️")
+                            st.session_state.variables_selected = False
+
+                    # Step 2: 결측 파악 및 처리
+                    if st.session_state.variables_selected:
+                        st.divider()
+                        st.markdown("<h4 style='color:grey;'>결측 파악 및 처리</h4>", unsafe_allow_html=True)
+
                         # 결측 파악
                         missing_duration_count = df[duration_column].isna().sum()
                         missing_event_count = df[event_column].isna().sum()
-                        st.divider()
-                        st.markdown("<h4 style='color:grey;'>결측 파악</h4>", unsafe_allow_html=True)
 
                         if missing_duration_count > 0 or missing_event_count > 0:
                             st.markdown(
@@ -3554,7 +3822,7 @@ if login():  # If logged in, show the rest of the app
                                 unsafe_allow_html=True
                             )
                             if st.checkbox("✔️ 결측된 관측을 검열로 기록하시려면 선택해주세요: (미선택 시 결측 행은 분석에서 제외됩니다.)"):
-                                # 예제: 검열 기간 입력
+                                # 검열 기간 입력
                                 censoring_date = st.number_input("검열 기간(정수 입력)을 설정해주세요:", min_value=0, max_value=10000, step=1)
                                 if censoring_date:
                                     df[duration_column] = df[duration_column].fillna(censoring_date)
@@ -3563,11 +3831,10 @@ if login():  # If logged in, show the rest of the app
                             st.success("결측 처리 작업 없이 분석이 가능합니다.", icon="✅")
 
                         # 분석 시작 버튼
-                        st.write(" ")
                         if st.button("🚀 분석 시작", key="start_analysis"):
                             st.session_state.analysis_ready = True
 
-                    # 분석 결과 표시
+                    # Step 3: 분석 결과 표시
                     if st.session_state.analysis_ready:
                         st.divider()
                         st.header("💻 생존분석 결과", divider='rainbow')
@@ -3680,30 +3947,6 @@ if login():  # If logged in, show the rest of the app
                                 event_table = kmf.event_table
                                 st.dataframe(event_table, use_container_width=True)
 
-                        # Style for custom callout boxes
-                        st.divider()
-                        st.markdown(
-                            """
-                            <style>
-                            .custom-callout {
-                                background-color: #f9f9f9;
-                                padding: 10px;
-                                border-radius: 10px;
-                                border: 1px solid #d3d3d3;
-                                box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
-                            }
-                            .custom-callout p {
-                                margin: 0;
-                                color: #000000;
-                                font-size: 14px;
-                                line-height: 1.4;
-                                text-align: left;
-                            }
-                            </style>
-                            """,
-                            unsafe_allow_html=True
-                        )
-
                         # st.session_state 초기화
                         if "continuous_columns" not in st.session_state:
                             st.session_state.continuous_columns = []
@@ -3714,6 +3957,18 @@ if login():  # If logged in, show the rest of the app
                         if "survival_ready" not in st.session_state:
                             st.session_state.survival_ready = False
 
+                        analysis_type = 'survival'
+                        st.divider()
+                        st.header("💻 Cox Proportional Hazards Modeling", divider='rainbow')
+                        st.markdown("<h4 style='color:grey;'>변수 선택</h4>", unsafe_allow_html=True)
+
+                        # Generate unique keys for Streamlit elements
+                        def generate_key(base_key, analysis_type=None, column=None):
+                            key = f"{analysis_type}_{base_key}" if analysis_type else base_key
+                            if column:
+                                key += f"_{column}"
+                            return key
+
                         # 범주형 변수 추출 함수
                         def get_categorical_columns(df):
                             categorical_columns = list(df.select_dtypes(include=['object', 'category']).columns)
@@ -3722,158 +3977,146 @@ if login():  # If logged in, show the rest of the app
                             ]
                             return categorical_columns + low_cardinality_numerical
 
-                        # UI for variable selection
-                        st.header("💻 Cox Proportional Hazards Modeling", divider='rainbow')
-                        st.markdown("<h4 style='color:grey;'>☑️ 변수 선택</h4>", unsafe_allow_html=True)
-
-                        # 연속형 변수 선택 (제외된 열 제외)
-                        continuous_columns = st.multiselect(
-                            "✔️ 연속형 변수를 선택해주세요:",
-                            [
+                        # 연속형 변수 선택 (고유 값이 4 이상인 연속형 변수만 필터링)
+                        def get_continuous_columns(df):
+                            available_columns = [
                                 col for col in df.select_dtypes(include=['float64', 'int64']).columns 
-                                if col not in excluded_columns and df[col].nunique() >= 5
-                            ],
-                            key="continuous_columns_selection"
+                                if df[col].nunique() >= 5
+                            ]
+                            return available_columns
+
+                        # Step 1: Variable Selection
+
+                        continuous_columns = st.multiselect(
+                            "✔️ 연속형 설명변수(독립변수)(X)를 선택해주세요:",
+                            [col for col in df.select_dtypes(include=['float64', 'int64']).columns if df[col].nunique() >= 5],
+                            key=generate_key("continuous_selection", analysis_type)
                         )
 
-                        # 범주형 변수 선택 (제외된 열 제외)
                         categorical_columns = st.multiselect(
-                            "✔️ 범주형 변수를 선택해주세요:",
-                            [col for col in get_categorical_columns(df) if col not in excluded_columns],
-                            key="categorical_columns_selection"
+                            "✔️ 범주형 설명변수(독립변수)(X)를 선택해주세요:",
+                            get_categorical_columns(df),
+                            key=generate_key("categorical_selection", analysis_type)
                         )
 
-                        # 선택 완료 버튼
-                        if st.button('선택 완료', key='complete_button'):
+                        # Selection confirmation
+                        if st.button('선택 완료', key=generate_key("complete_button", analysis_type)):
                             if len(continuous_columns) + len(categorical_columns) > 0:
-                                st.session_state.continuous_columns = continuous_columns
-                                st.session_state.categorical_columns = categorical_columns
-                                st.session_state.proceed_to_preprocessing = True
+                                st.session_state[f"{analysis_type}_continuous_columns"] = continuous_columns
+                                st.session_state[f"{analysis_type}_categorical_columns"] = categorical_columns
+                                st.session_state[f"{analysis_type}_proceed"] = True
                                 st.success("변수 선택이 완료되었습니다. 다음 단계로 진행하세요.", icon="✅")
                             else:
-                                st.warning("변수를 한 개 이상 선택하셔야 합니다.", icon="⚠️")
+                                st.warning("적어도 하나의 변수를 선택해주세요.", icon="⚠️")
+                                st.session_state[f"{analysis_type}_proceed"] = False
 
-                        # 2. 전처리 단계
-                        if st.session_state.get("proceed_to_preprocessing", False):
+                        # Step 2: Preprocessing
+                        if st.session_state.get(f"{analysis_type}_proceed", False):
                             st.divider()
-                            st.markdown("<h4 style='color:grey;'>결측 파악</h4>", unsafe_allow_html=True)
+                            st.markdown("<h4 style='color:grey;'>결측 파악 및 처리</h4>", unsafe_allow_html=True)
 
-                            # 데이터 분리
-                            X_continuous = df[st.session_state.continuous_columns]
-                            X_categorical = df[st.session_state.categorical_columns]
+                            # Extract selected columns
+                            X_continuous = df[st.session_state[f"{analysis_type}_continuous_columns"]]
+                            X_categorical = df[st.session_state[f"{analysis_type}_categorical_columns"]]
 
-                            # 결측값 유무 확인
+                            # Check for missing values
                             continuous_missing = X_continuous.isnull().any().any()
                             categorical_missing = X_categorical.isnull().any().any()
 
-                            if not continuous_missing and not categorical_missing:
-                                st.success("결측 처리 작업 없이 분석이 가능합니다.", icon="✅")
-                                st.session_state.survival_ready = True  # 바로 분석 준비 완료
-                            else:
-                                # 결측 처리: 연속형 변수 결측 처리
-                                continuous_missing_value_strategies = {}
-                                categorical_missing_value_strategies = {}
+                            # Missing value strategies
+                            continuous_missing_value_strategies = {}
+                            categorical_missing_value_strategies = {}
 
-                                # Step 2: 연속형 변수 결측 처리 선택
-                                for column in st.session_state.continuous_columns:
-                                    missing_count = df[column].isna().sum()
+                            if continuous_missing or categorical_missing:
+                                st.session_state[f"{analysis_type}_has_missing_values"] = True
+
+                                # Handle missing values for continuous variables
+                                for column in st.session_state[f"{analysis_type}_continuous_columns"]:
+                                    missing_count = X_continuous[column].isna().sum()
                                     if missing_count > 0:
-                                        st.error(f"선택하신 연속형 변수 '{column}'에 결측치 {missing_count}개가 있습니다.", icon="⛔")
+                                        st.error(f"연속형 변수 '{column}'에 결측치 {missing_count}개가 있습니다.", icon="⛔")
                                         strategy = st.selectbox(
                                             f"✔️ '{column}'의 결측 처리 방법을 선택해주세요:",
                                             ['-- 선택 --', '결측이 존재하는 행을 제거', '해당 열의 평균값으로 대체', '해당 열의 중앙값으로 대체', '해당 열의 최빈값으로 대체'],
-                                            key=f"continuous_{column}_strategy"
+                                            key=generate_key("continuous_strategy", analysis_type, column)
                                         )
                                         if strategy != '-- 선택 --':
                                             continuous_missing_value_strategies[column] = strategy
 
-                                # Step 3: 범주형 변수 결측 처리 선택
-                                for column in st.session_state.categorical_columns:
-                                    missing_count = df[column].isna().sum()
+                                # Handle missing values for categorical variables
+                                for column in st.session_state[f"{analysis_type}_categorical_columns"]:
+                                    missing_count = X_categorical[column].isna().sum()
                                     if missing_count > 0:
-                                        st.error(f"선택하신 범주형 변수 '{column}'에 결측치 {missing_count}개가 있습니다.", icon="⛔")
+                                        st.error(f"범주형 변수 '{column}'에 결측치 {missing_count}개가 있습니다.", icon="⛔")
                                         strategy = st.selectbox(
                                             f"✔️ '{column}'의 결측 처리 방법을 선택해주세요:",
                                             ['-- 선택 --', '결측이 존재하는 행을 제거', '해당 열의 최빈값으로 대체'],
-                                            key=f"categorical_{column}_strategy"
+                                            key=generate_key("categorical_strategy", analysis_type, column)
                                         )
                                         if strategy != '-- 선택 --':
                                             categorical_missing_value_strategies[column] = strategy
+                            else:
+                                st.success("결측 처리 작업 없이 분석이 가능합니다.", icon="✅")
+                                st.session_state[f"{analysis_type}_has_missing_values"] = False
 
-                                # Step 4: 결측 처리 로직 - 모델 학습 시작 버튼을 누르면 실행
-                                if continuous_missing_value_strategies or categorical_missing_value_strategies:
-                                    # 연속형 변수 결측 처리
-                                    for column, strategy in continuous_missing_value_strategies.items():
-                                        if strategy == '결측이 존재하는 행을 제거':
-                                            X_continuous = X_continuous.dropna(subset=[column])
-                                        else:
-                                            impute_strategy = {
-                                                '해당 열의 평균값으로 대체': 'mean',
-                                                '해당 열의 중앙값으로 대체': 'median',
-                                                '해당 열의 최빈값으로 대체': 'most_frequent'
-                                            }[strategy]
-                                            imputer = SimpleImputer(strategy=impute_strategy)
-                                            X_continuous[[column]] = imputer.fit_transform(X_continuous[[column]])
-
-                                    # 범주형 변수 결측 처리
-                                    for column, strategy in categorical_missing_value_strategies.items():
-                                        if strategy == '결측이 존재하는 행을 제거':
-                                            X_categorical = X_categorical.dropna(subset=[column])
-                                        elif strategy == '해당 열의 최빈값으로 대체':
-                                            imputer = SimpleImputer(strategy='most_frequent')
-                                            X_categorical[[column]] = imputer.fit_transform(X_categorical[[column]])
-
-                                    # Step 5: 인덱스 동기화
-                                    shared_indexes = X_continuous.index.intersection(X_categorical.index)
-                                    X_continuous = X_continuous.loc[shared_indexes]
-                                    X_categorical = X_categorical.loc[shared_indexes]
-
-                                st.session_state.survival_ready = True  # 데이터 준비 완료로 설정
-
-                            # Step 6: 모델 학습 시작 버튼
-                            if st.session_state.get("survival_ready", False) and st.button('🚀 모델 학습 시작', key='train_model_button'):
+                            # Step 3: Analysis Execution
+                            if st.button("🚀 분석 시작", key=generate_key("start_analysis", analysis_type)):
                                 st.divider()
+                                st.header("💻 Cox Proportional Hazards Model 결과", divider='rainbow')
 
-                                # 결측 처리 및 모델 학습
+                                # Step 1: Apply missing value strategies
+                                for column, strategy in continuous_missing_value_strategies.items():
+                                    if strategy == '결측이 존재하는 행을 제거':
+                                        X_continuous = X_continuous.dropna(subset=[column])
+                                    else:
+                                        impute_strategy = {
+                                            '해당 열의 평균값으로 대체': 'mean',
+                                            '해당 열의 중앙값으로 대체': 'median',
+                                            '해당 열의 최빈값으로 대체': 'most_frequent'
+                                        }[strategy]
+                                        imputer = SimpleImputer(strategy=impute_strategy)
+                                        X_continuous[[column]] = imputer.fit_transform(X_continuous[[column]])
+
+                                for column, strategy in categorical_missing_value_strategies.items():
+                                    if strategy == '결측이 존재하는 행을 제거':
+                                        X_categorical = X_categorical.dropna(subset=[column])
+                                    elif strategy == '해당 열의 최빈값으로 대체':
+                                        imputer = SimpleImputer(strategy='most_frequent')
+                                        X_categorical[[column]] = imputer.fit_transform(X_categorical[[column]])
+
+                                # Merge continuous and categorical variables
+                                if not X_continuous.empty and not X_categorical.empty:
+                                    X = pd.concat([X_continuous, X_categorical], axis=1)
+                                elif not X_continuous.empty:
+                                    X = X_continuous.copy()
+                                elif not X_categorical.empty:
+                                    X = X_categorical.copy()
+                                else:
+                                    st.error("연속형 및 범주형 변수 데이터가 비어 있습니다.", icon="⛔")
+
+                                # Ensure X is numeric
+                                X = X.apply(pd.to_numeric, errors='coerce')
+
+                                # Combine X with duration and event columns
+                                df_for_cox = pd.concat([df[[duration_column, event_column]], X], axis=1).dropna()
+
+                                # Check if data is empty after preprocessing
+                                if df_for_cox.empty:
+                                    st.error("결측 처리 후 데이터가 비어 있습니다. 결측 처리 방법을 확인해주세요.", icon="⛔")
+
+                                # Train-test split
+                                train_data, test_data = train_test_split(
+                                    df_for_cox,
+                                    test_size=0.2,
+                                    random_state=42,
+                                    stratify=df_for_cox[event_column]
+                                )
+
+                                if test_data.empty:
+                                    st.error("테스트 데이터가 비어 있습니다. 데이터 분할을 확인해주세요.", icon="⛔")
+
+                                # Fit Cox Proportional Hazards Model
                                 try:
-                                    # 범주형 변수 처리
-                                    if not X_categorical.empty:
-                                        # Handle categorical variables (e.g., converting categories to dummy variables)
-                                        X_categorical = pd.get_dummies(X_categorical, drop_first=True)
-
-                                        # Check and handle boolean columns if they exist
-                                        for column in X_categorical.columns:
-                                            if X_categorical[column].dtype == 'bool':  # Only map if the column is of boolean type
-                                                X_categorical[column] = X_categorical[column].map({True: 1, False: 0})
-
-                                        # Ensure all columns in X_categorical are integers
-                                        X_categorical = X_categorical.astype(int, errors='ignore')
-
-                                    # 연속형 변수와 범주형 변수 병합 (하나만 선택된 경우 처리)
-                                    if not X_continuous.empty and not X_categorical.empty:
-                                        # 둘 다 존재하는 경우 concat
-                                        X = pd.concat([X_continuous, X_categorical], axis=1)
-                                    elif not X_continuous.empty:
-                                        # 연속형 변수만 있는 경우
-                                        X = X_continuous.copy()
-                                    elif not X_categorical.empty:
-                                        # 범주형 변수만 있는 경우
-                                        X = X_categorical.copy()
-
-                                    # Ensure that combined X does not have object or mixed types
-                                    X = X.apply(pd.to_numeric, errors='coerce')
-
-                                    # Combine X with duration and event columns
-                                    df_for_cox = pd.concat([df[[duration_column, event_column]], X], axis=1).dropna()
-
-                                    train_data, test_data = train_test_split(
-                                        df_for_cox, 
-                                        test_size=0.2, 
-                                        random_state=42, 
-                                        stratify=df_for_cox[event_column]
-                                    )
-
-                                    # Fit the Cox Proportional Hazards Model on training data
                                     cph = CoxPHFitter()
                                     cph.fit(train_data, duration_col=duration_column, event_col=event_column)
 
@@ -3883,9 +4126,6 @@ if login():  # If logged in, show the rest of the app
                                     summary_df['HR'] = np.exp(summary_df['coef'])
                                     summary_df['95% CI Lower'] = np.exp(summary_df['coef lower 95%'])
                                     summary_df['95% CI Upper'] = np.exp(summary_df['coef upper 95%'])
-
-                                    # Display results
-                                    st.header("💻 Cox Proportional Hazards Model 결과", divider="rainbow")
 
                                     # Evaluate model on test data
                                     c_index = cph.score(test_data)
@@ -3913,7 +4153,7 @@ if login():  # If logged in, show the rest of the app
 
                                     st.write(" ")
                                     st.write(" ")
-                                    st.header("💻 Kaplan-Meier Curve", divider='rainbow')
+                                    st.header("💻 Cox Proportional Hazards Model Figure", divider='rainbow')
 
                                     # ROC Curve
                                     fpr, tpr, _ = roc_curve(y_test, predicted_probs)
@@ -4055,7 +4295,6 @@ if login():  # If logged in, show the rest of the app
 
                                     # Display the Plotly figure in Streamlit
                                     st.plotly_chart(fig_forest)
-
 
                                 except Exception as e:
                                     st.error(f"모델 학습 중 오류가 발생했습니다: {e}")
