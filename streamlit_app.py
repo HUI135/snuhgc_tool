@@ -133,7 +133,7 @@ if login():  # If logged in, show the rest of the app
         st.info("**환영합니다!** 원하시는 기능을 좌측 사이드바에서 선택해주세요.", icon="🔔")
 
         # SendGrid API 키 및 이메일 설정
-        SENDGRID_API_KEY = "***REMOVED***GmrxohBfQU6RFaxr9cHmIQ.ckt4pXcoC9f__x_I5Gc5v2T7XYnUtRMO5-5GfPo6YPs"
+        SENDGRID_API_KEY = "***REMOVED***qJEH9uRkSUOkHClmG9BX6Q.3WM4-rvF7OG7xv-GO5IC9mOhVSvO6rcR_Lqt2qRpTcU"
         MY_EMAIL = "hui135@snu.ac.kr"  # 자신의 이메일 주소
 
         # 로그 설정
@@ -4312,7 +4312,7 @@ if login():  # If logged in, show the rest of the app
 
     elif page == "⛔ 오류가 발생했어요":
         # SendGrid API 키 및 이메일 설정
-        SENDGRID_API_KEY = "***REMOVED***GmrxohBfQU6RFaxr9cHmIQ.ckt4pXcoC9f__x_I5Gc5v2T7XYnUtRMO5-5GfPo6YPs"
+        SENDGRID_API_KEY = "***REMOVED***qJEH9uRkSUOkHClmG9BX6Q.3WM4-rvF7OG7xv-GO5IC9mOhVSvO6rcR_Lqt2qRpTcU"
         MY_EMAIL = "hui135@snu.ac.kr"  # 자신의 이메일 주소
 
         # 이메일 전송 함수
