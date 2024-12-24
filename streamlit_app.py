@@ -79,6 +79,10 @@ if "loading_complete" not in st.session_state:
 if "header_displayed" not in st.session_state:
     st.session_state.header_displayed = False  # Track header display status
 
+github_pat = st.secrets["GITHUB_PAT"]
+sendgrid_api_key = st.secrets["SENDGRID_API_KEY"]
+password = st.secrets["PASSWORD"]
+
 # 로그인 함수
 def login():
     """Handles user login."""
