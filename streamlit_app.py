@@ -54,8 +54,6 @@ st.set_page_config(layout="wide")
 ######### Homepage #########
 ############################
 
-PASSWORD = "snuhgchc"  # Change this to your desired password
-
 # 이미지와 제목 표시 함수
 def display_header():
     image_url = 'http://www.snuh.org/upload/about/hi/15e707df55274846b596e0d9095d2b0e.png'
