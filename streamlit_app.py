@@ -126,7 +126,7 @@ if login():  # If logged in, show the rest of the app
         "✔️ 사용하실 기능을 선택해주세요:",
         ["-- 선택 --", "🔔 사용설명서", "♻️ 인과관계 추론", "📝 피봇 변환", "📝 데이터 코딩", "📝 판독문 코딩", "📊 시각화", "📊 특성표 생성", "💻 로지스틱 회귀분석", "💻 생존분석", "⛔ 오류가 발생했어요"],
         index=0  # Default to "-- 선택 --"
-    )
+    ) 
 
     # Page-specific content
     if page == "-- 선택 --":
