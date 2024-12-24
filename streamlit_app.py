@@ -80,7 +80,7 @@ if "header_displayed" not in st.session_state:
     st.session_state.header_displayed = False  # Track header display status
 
 sendgrid_api_key = "111"
-password = "snuhgchc"
+PASSWORD = "snuhgchc"
 
 # 로그인 함수
 def login():
