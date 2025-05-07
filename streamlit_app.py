@@ -172,32 +172,32 @@ if login():  # If logged in, show the rest of the app
         #     send_email_via_sendgrid(subject, content)
 
         # 세션 시작 시 로그 및 알림
-        if "session_id" not in st.session_state:
-            st.session_state["session_id"] = str(datetime.now().timestamp())
-            log_and_notify_user_access()
+        # if "session_id" not in st.session_state:
+            # st.session_state["session_id"] = str(datetime.now().timestamp())
+            # log_and_notify_user_access()
 
         # Streamlit 앱 UI
         # st.title("접속 로그 및 이메일 알림 테스트")
         # st.write("이 페이지에 접속할 때 관리자가 이메일로 알림을 받습니다.")
 
         # 이메일 전송 함수
-        def send_email_via_sendgrid(subject, content):
-            try:
-                # 이메일 구성
-                email = Mail(
-                    from_email=MY_EMAIL,  # 발신자 이메일
-                    to_emails=MY_EMAIL,                  # 수신자 이메일
-                    subject=subject,
-                    html_content=f"<strong>{content}</strong>"
-                )
+        # def send_email_via_sendgrid(subject, content):
+        #     try:
+        #         # 이메일 구성
+        #         email = Mail(
+        #             from_email=MY_EMAIL,  # 발신자 이메일
+        #             to_emails=MY_EMAIL,                  # 수신자 이메일
+        #             subject=subject,
+        #             html_content=f"<strong>{content}</strong>"
+        #         )
 
-                # SendGrid 클라이언트를 사용하여 이메일 전송
-                sg = SendGridAPIClient(SENDGRID_API_KEY)
-                response = sg.send(email)
-                return response  # 응답 반환
-            except Exception as e:
-                st.error(f"Error: {e}")
-                return None
+        #         # SendGrid 클라이언트를 사용하여 이메일 전송
+        #         sg = SendGridAPIClient(SENDGRID_API_KEY)
+        #         response = sg.send(email)
+        #         return response  # 응답 반환
+        #     except Exception as e:
+        #         st.error(f"Error: {e}")
+        #         return None
                 
 
         # toggle_2 = st.checkbox("🌈 추가 기능 제안")
@@ -4295,61 +4295,61 @@ if login():  # If logged in, show the rest of the app
                 st.error("파일이 암호화된 것 같습니다. 파일의 암호를 푼 후 다시 시도해주세요.")
 
 
-    elif page == "⛔ 오류가 발생했어요":
-        # SendGrid API 키 및 이메일 설정
-        MY_EMAIL = MY_EMAIL  # 자신의 이메일 주소
+    # elif page == "⛔ 오류가 발생했어요":
+    #     # SendGrid API 키 및 이메일 설정
+    #     MY_EMAIL = MY_EMAIL  # 자신의 이메일 주소
 
-        # 이메일 전송 함수
-        def send_email_via_sendgrid(subject, content):
-            try:
-                # 이메일 구성
-                email = Mail(
-                    from_email=MY_EMAIL,  # 발신자 이메일
-                    to_emails=MY_EMAIL,                  # 수신자 이메일
-                    subject=subject,
-                    html_content=f"<strong>{content}</strong>"
-                )
+    #     # 이메일 전송 함수
+    #     def send_email_via_sendgrid(subject, content):
+    #         try:
+    #             # 이메일 구성
+    #             email = Mail(
+    #                 from_email=MY_EMAIL,  # 발신자 이메일
+    #                 to_emails=MY_EMAIL,                  # 수신자 이메일
+    #                 subject=subject,
+    #                 html_content=f"<strong>{content}</strong>"
+    #             )
 
-                # SendGrid 클라이언트를 사용하여 이메일 전송
-                sg = SendGridAPIClient(SENDGRID_API_KEY)
-                response = sg.send(email)
-                return response  # 응답 반환
-            except Exception as e:
-                st.error(f"Error: {e}")
-                return None
+    #             # SendGrid 클라이언트를 사용하여 이메일 전송
+    #             sg = SendGridAPIClient(SENDGRID_API_KEY)
+    #             response = sg.send(email)
+    #             return response  # 응답 반환
+    #         except Exception as e:
+    #             st.error(f"Error: {e}")
+    #             return None
 
-        st.markdown(
-        """
-        <div style="background-color: #e9f5ff; padding: 10px; border-radius: 10px;">
-            <h2 style="color: #000000;">⛔ 오류가 발생했어요</h2>
-        </div>
-        """,
-        unsafe_allow_html=True
-        )
-        st.divider()
-        st.write(" ")
+    #     st.markdown(
+    #     """
+    #     <div style="background-color: #e9f5ff; padding: 10px; border-radius: 10px;">
+    #         <h2 style="color: #000000;">⛔ 오류가 발생했어요</h2>
+    #     </div>
+    #     """,
+    #     unsafe_allow_html=True
+    #     )
+    #     st.divider()
+    #     st.write(" ")
 
-        # Get user input
-        st.markdown("<h4 style='color:grey;'>어떤 어려움이 있으셨나요?</h4>", unsafe_allow_html=True)
-        user_input = st.text_area("입력하신 메세지는 김희연 연구원에게 전달됩니다.", key="user_input")
+    #     # Get user input
+    #     st.markdown("<h4 style='color:grey;'>어떤 어려움이 있으셨나요?</h4>", unsafe_allow_html=True)
+    #     user_input = st.text_area("입력하신 메세지는 김희연 연구원에게 전달됩니다.", key="user_input")
 
-        # 제출 버튼 클릭 시 동작
-        if st.button("제출", key="submit_button_1"):
-            if user_input.strip() == "":  # 빈 입력 확인
-                st.warning("제출 전 내용을 작성해주세요.")
-            else:
-                # 이메일 전송 시도
-                response = send_email_via_sendgrid("User Feedback", user_input)
+    #     # 제출 버튼 클릭 시 동작
+    #     if st.button("제출", key="submit_button_1"):
+    #         if user_input.strip() == "":  # 빈 입력 확인
+    #             st.warning("제출 전 내용을 작성해주세요.")
+    #         else:
+    #             # 이메일 전송 시도
+    #             response = send_email_via_sendgrid("User Feedback", user_input)
 
-                if response is None:
-                    st.error("전송에 실패하였습니다.")  # 요청 오류 발생 시
-                else:
-                    # 응답 상태 코드 확인
-                    if response.status_code == 202:  # 202는 SendGrid 성공 상태 코드
-                        st.success("성공적으로 전송되었습니다.")
-                    else:
-                        st.error(f"Send failed: {response.text}")
-                        st.write(f"Status code: {response.status_code}")
+    #             if response is None:
+    #                 st.error("전송에 실패하였습니다.")  # 요청 오류 발생 시
+    #             else:
+    #                 # 응답 상태 코드 확인
+    #                 if response.status_code == 202:  # 202는 SendGrid 성공 상태 코드
+    #                     st.success("성공적으로 전송되었습니다.")
+    #                 else:
+    #                     st.error(f"Send failed: {response.text}")
+    #                     st.write(f"Status code: {response.status_code}")
 
 else:
     display_header()
