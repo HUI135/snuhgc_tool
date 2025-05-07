@@ -52,38 +52,38 @@ Streamlit을 활용해 누구나 직관적으로 인과 그래프 생성, 변수
 ## 🖼️ 예시 화면
 
 ### 🔐 로그인 / 사용자 인증 화면  
-<img src="assets/login.png" width="500">
+<img src="assets/login.png" width="700">
 
 ### ♻️ 인과관계 추론 화면
-<img src="assets/causal.png" width="500">
+<img src="assets/causal.png" width="700">
 
 ### 📝 피봇 변환 화면
-<img src="assets/pivot.png" width="500">
+<img src="assets/pivot.png" width="700">
 
 ### 📝 데이터 코딩 화면
-<img src="assets/coding1.png" width="500">
-<img src="assets/coding2.png" width="500">
+<img src="assets/coding1.png" width="700">
+<img src="assets/coding2.png" width="700">
 
 ### 📝 판독문 코딩 화면
-<img src="assets/reading.png" width="500">
+<img src="assets/reading.png" width="700">
 
 ### 📊 시각화 화면
-<img src="assets/visualization1.png" width="500">
-<img src="assets/visualization2.png" width="500">
+<img src="assets/visualization1.png" width="700">
+<img src="assets/visualization2.png" width="700">
 
 ### 📊 특성표 생성 화면
-<img src="assets/table.png" width="500">
+<img src="assets/table.png" width="700">
 
 ### 💻 로지스틱 회귀분석 화면
-<img src="assets/logit1.png" width="500">
-<img src="assets/logit2.png" width="500">
-<img src="assets/logit3.png" width="500">
+<img src="assets/logit1.png" width="700">
+<img src="assets/logit2.png" width="700">
+<img src="assets/logit3.png" width="700">
 
 ### 💻 생존분석 화면
-<img src="assets/survival1.png" width="500">
-<img src="assets/survival2.png" width="500">
-<img src="assets/survival3.png" width="500">
-<img src="assets/survival4.png" width="500">
+<img src="assets/survival1.png" width="700">
+<img src="assets/survival2.png" width="700">
+<img src="assets/survival3.png" width="700">
+<img src="assets/survival4.png" width="700">
 
 ---
 
