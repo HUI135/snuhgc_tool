@@ -79,8 +79,9 @@ if "loading_complete" not in st.session_state:
 if "header_displayed" not in st.session_state:
     st.session_state.header_displayed = False  # Track header display status
 
-sendgrid_api_key = "111"
-PASSWORD = "snuhgchc"
+PASSWORD = st.secrets["general"]["PASSWORD"]
+SENDGRID_API_KEY = st.secrets["general"]["SENDGRID_API_KEY"]
+MY_EMAIL = st.secrets["general"]["MY_EMAIL"]
 
 # 로그인 함수
 def login():
@@ -125,16 +126,13 @@ if login():  # If logged in, show the rest of the app
     st.sidebar.title("기능 선택")
     page = st.sidebar.selectbox(
         "✔️ 사용하실 기능을 선택해주세요:",
-        ["-- 선택 --", "🔔 사용설명서", "♻️ 인과관계 추론", "📝 피봇 변환", "📝 데이터 코딩", "📝 판독문 코딩", "📊 시각화", "📊 특성표 생성", "💻 로지스틱 회귀분석", "💻 생존분석", "⛔ 오류가 발생했어요"],
+        ["-- 선택 --", "🔔 사용설명서", "♻️ 인과관계 추론", "📝 피봇 변환", "📝 데이터 코딩", "📝 판독문 코딩", "📊 시각화", "📊 특성표 생성", "💻 로지스틱 회귀분석", "💻 생존분석"],
         index=0  # Default to "-- 선택 --"
     ) 
 
     # Page-specific content
     if page == "-- 선택 --":
         st.info("**환영합니다!** 원하시는 기능을 좌측 사이드바에서 선택해주세요.", icon="🔔")
-
-        # SendGrid API 키 및 이메일 설정
-        MY_EMAIL = "hui135@snu.ac.kr"  # 자신의 이메일 주소
 
         # 로그 설정
         logging.basicConfig(
@@ -143,35 +141,35 @@ if login():  # If logged in, show the rest of the app
             format="%(asctime)s - %(message)s",
         )
 
-        # 이메일 전송 함수
-        def send_email_via_sendgrid(subject, content):
-            try:
-                email = Mail(
-                    from_email="hui135@snu.ac.kr",  # 발신자 이메일
-                    to_emails=MY_EMAIL,            # 수신자 이메일
-                    subject=subject,
-                    html_content=f"<strong>{content}</strong>"
-                )
-                sg = SendGridAPIClient(SENDGRID_API_KEY)
-                response = sg.send(email)
-                return response
-            except Exception as e:
-                st.error(f"Error sending email: {e}")
-                return None
+        # # 이메일 전송 함수
+        # def send_email_via_sendgrid(subject, content):
+        #     try:
+        #         email = Mail(
+        #             from_email=MY_EMAIL,  # 발신자 이메일
+        #             to_emails=MY_EMAIL,            # 수신자 이메일
+        #             subject=subject,
+        #             html_content=f"<strong>{content}</strong>"
+        #         )
+        #         sg = SendGridAPIClient(SENDGRID_API_KEY)
+        #         response = sg.send(email)
+        #         return response
+        #     except Exception as e:
+        #         st.error(f"Error sending email: {e}")
+        #         return None
 
-        # 사용자 접속 기록 및 이메일 알림
-        def log_and_notify_user_access():
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            session_id = st.session_state.get("session_id", "unknown")
-            log_message = f"User accessed the app - Session ID: {session_id}, Time: {timestamp}"
+        # # 사용자 접속 기록 및 이메일 알림
+        # def log_and_notify_user_access():
+        #     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        #     session_id = st.session_state.get("session_id", "unknown")
+        #     log_message = f"User accessed the app - Session ID: {session_id}, Time: {timestamp}"
             
-            # 로그 기록
-            logging.info(log_message)
+        #     # 로그 기록
+        #     logging.info(log_message)
             
-            # 이메일 전송
-            subject = "Streamlit 접속 알림"
-            content = f"새로운 접속 발생:\n\n{log_message}"
-            send_email_via_sendgrid(subject, content)
+        #     # 이메일 전송
+        #     subject = "Streamlit 접속 알림"
+        #     content = f"새로운 접속 발생:\n\n{log_message}"
+        #     send_email_via_sendgrid(subject, content)
 
         # 세션 시작 시 로그 및 알림
         if "session_id" not in st.session_state:
@@ -187,7 +185,7 @@ if login():  # If logged in, show the rest of the app
             try:
                 # 이메일 구성
                 email = Mail(
-                    from_email="hui135@snu.ac.kr",  # 발신자 이메일
+                    from_email=MY_EMAIL,  # 발신자 이메일
                     to_emails=MY_EMAIL,                  # 수신자 이메일
                     subject=subject,
                     html_content=f"<strong>{content}</strong>"
@@ -202,41 +200,28 @@ if login():  # If logged in, show the rest of the app
                 return None
                 
 
-        toggle_2 = st.checkbox("🌈 추가 기능 제안")
+        # toggle_2 = st.checkbox("🌈 추가 기능 제안")
         
-        if toggle_2:
-            message_input = st.text_area("추가되었으면 하는 기능을 작성해주세요.", key="message_input")
+        # if toggle_2:
+        #     message_input = st.text_area("추가되었으면 하는 기능을 작성해주세요.", key="message_input")
 
-            # 제출 버튼 클릭 시 동작
-            if st.button("제출", key="submit_button_1"):
-                if message_input.strip() == "":  # 빈 입력 확인
-                    st.warning("제출 전 내용을 작성해주세요.")
-                else:
-                    # 이메일 전송 시도
-                    response = send_email_via_sendgrid("User Suggestion", message_input)
+        #     # 제출 버튼 클릭 시 동작
+        #     if st.button("제출", key="submit_button_1"):
+        #         if message_input.strip() == "":  # 빈 입력 확인
+        #             st.warning("제출 전 내용을 작성해주세요.")
+        #         else:
+        #             # 이메일 전송 시도
+        #             response = send_email_via_sendgrid("User Suggestion", message_input)
 
-                    if response is None:
-                        st.error("전송에 실패하였습니다.")  # 요청 오류 발생 시
-                    else:
-                        # 응답 상태 코드 확인
-                        if response.status_code == 202:  # 202는 SendGrid 성공 상태 코드
-                            st.success("성공적으로 전송되었습니다.")
-                        else:
-                            st.error(f"Send failed: {response.text}")
-                            st.write(f"Status code: {response.status_code}")    
-
-        toggle = st.checkbox("**📅 24.12.12 📅** Update 사항 자세히보기")
-
-        if toggle:
-            # Toggle 활성화 시 Markdown 출력
-            st.markdown("""
-            - **🔔 사용설명서** : 최종 업로드 완료
-            - **📝 피봇 변환** : 필터링 옵션 추가 - `환자별 첫번째 방문`, `환자별 마지막 방문`, `환자별 첫번째 방문과 마지막 방문`
-            """)
-        # else:
-        #     # Toggle 비활성화 시 Info 출력
-        #     st.info(" **환영합니다!** 좌측 사이드바에서 원하시는 기능을 선택해주세요.", icon='💡')
-
+        #             if response is None:
+        #                 st.error("전송에 실패하였습니다.")  # 요청 오류 발생 시
+        #             else:
+        #                 # 응답 상태 코드 확인
+        #                 if response.status_code == 202:  # 202는 SendGrid 성공 상태 코드
+        #                     st.success("성공적으로 전송되었습니다.")
+        #                 else:
+        #                     st.error(f"Send failed: {response.text}")
+        #                     st.write(f"Status code: {response.status_code}")    
 
             
     elif page == "🔔 사용설명서":
@@ -4312,14 +4297,14 @@ if login():  # If logged in, show the rest of the app
 
     elif page == "⛔ 오류가 발생했어요":
         # SendGrid API 키 및 이메일 설정
-        MY_EMAIL = "hui135@snu.ac.kr"  # 자신의 이메일 주소
+        MY_EMAIL = MY_EMAIL  # 자신의 이메일 주소
 
         # 이메일 전송 함수
         def send_email_via_sendgrid(subject, content):
             try:
                 # 이메일 구성
                 email = Mail(
-                    from_email="hui135@snu.ac.kr",  # 발신자 이메일
+                    from_email=MY_EMAIL,  # 발신자 이메일
                     to_emails=MY_EMAIL,                  # 수신자 이메일
                     subject=subject,
                     html_content=f"<strong>{content}</strong>"
