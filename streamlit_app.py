@@ -48,7 +48,7 @@ from datetime import datetime
 # from causallearn.utils.GraphUtils import graph_to_adjacency_matrix
 
 # wide format
-st.set_page_config(page_title="GC DataRoom", page_icon="🏥", layout="wide")
+st.set_page_config(page_title="GC DataRoom", page_icon="📊", layout="wide")
 
 ############################
 ######### Homepage #########
